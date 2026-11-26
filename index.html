@@ -480,7 +480,13 @@ const PLAY='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',PAUSE='<sv
 const LEC=document.createElement("audio");LEC.preload="metadata";LEC.setAttribute("playsinline","");LEC.setAttribute("webkit-playsinline","");LEC.style.display="none";document.body.appendChild(LEC);
 let want=false,ART=null;
 function artwork(){if(ART)return ART;try{const c=document.createElement("canvas");c.width=c.height=512;const x=c.getContext("2d"),g=x.createLinearGradient(0,0,512,512);g.addColorStop(0,"#4f46e5");g.addColorStop(1,"#c026d3");x.fillStyle=g;x.fillRect(0,0,512,512);x.font="260px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("🎧",256,270);ART=[{src:c.toDataURL("image/png"),sizes:"512x512",type:"image/png"}]}catch(e){ART=[]}return ART}
-function duck(on){try{if(typeof bgm!=="undefined"&&bgm)bgm.volume=on?.08:.5}catch(e){}}
+let bgmWas=false;
+function duck(on){try{
+  if(on){
+    if(typeof bgm!=="undefined"&&bgm&&!bgm.paused){bgmWas=true;bgm.pause()}
+    if(typeof timer!=="undefined"&&timer){bgmWas=true;clearInterval(timer);timer=null}
+  }else setTimeout(()=>{if(bgmWas&&LEC.paused&&soundOn&&started&&!document.hidden){bgmWas=false;startMusic()}},400);
+}catch(e){}}
 function upd(){const d=LEC.duration,t=LEC.currentTime;
   if("mediaSession" in navigator&&navigator.mediaSession.setPositionState&&isFinite(d)&&d>0){try{navigator.mediaSession.setPositionState({duration:d,playbackRate:LEC.playbackRate||1,position:Math.min(t,d)})}catch(e){}}plCur.textContent=mm(t);plDur.textContent=mm(d);
   if(!seeking&&isFinite(d)&&d>0)plRange.value=Math.round(t/d*1000);plRange.style.setProperty("--p",plRange.value/10+"%")}
@@ -621,7 +627,7 @@ bgm.addEventListener("playing",()=>{fails=0});
 function synthStart(){if(timer||!AC)return;nextT=AC.currentTime+.1;timer=setInterval(sched,100)}
 function bgmNext(){if(++fails<MUSIC_URLS.length*2){pick();if(soundOn&&started)bgm.play().catch(()=>{})}else{bgmFail=true;if(soundOn&&started)synthStart()}}
 bgm.addEventListener("error",bgmNext);
-function startMusic(){started=true;if(bgmFail){synthStart();return}bgm.play().catch(()=>{})}
+function startMusic(){started=true;if(typeof LEC!=="undefined"&&LEC&&!LEC.paused)return;if(bgmFail){synthStart();return}bgm.play().catch(()=>{})}
 document.addEventListener("visibilitychange",()=>{if(bgm){document.hidden?bgm.pause():(soundOn&&!document.getElementById("intro")&&startMusic())}if(!AC)return;document.hidden?AC.suspend():AC.resume()});
 document.addEventListener("click",e=>{if(e.target.closest("button")&&e.target.id!=="snd")sfx("tap")},true);
 snd.onclick=()=>{initAudio();soundOn=!soundOn;try{localStorage.setItem("dd_sound",soundOn?"1":"0")}catch(e){}applySound();if(soundOn){AC.resume();startMusic();sfx("tick")}else if(bgm)bgm.pause()};
@@ -834,3 +840,4 @@ filter="home";setView();mv();
 </script>
 </body>
 </html>
+
