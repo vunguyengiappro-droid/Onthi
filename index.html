@@ -908,6 +908,127 @@ $("admK").innerHTML=Object.keys(S).map(k=>`<option value="${k}">${S[k][0]}</opti
 openBtn.onclick=()=>{admSay("");box.classList.add("on");
   if(!window.__fbReady)admSay("Đang kết nối Firebase… nếu mãi không được: tắt adblock/VPN rồi tải lại trang.","er")};
 box.onclick=e=>{if(e.target===box||e.target.hasAttribute("data-x"))box.classList.remove("on")};
+
+/* ===== TRÌNH PHÁT NHẠC NỀN (kiểu Samsung Music) ===== */
+window.MUSIC_NAMES=window.MUSIC_NAMES||{};
+let musShuffle=true,musOne=false,shownBi=-1,musSeek=false;
+try{musShuffle=localStorage.getItem("dd_shuf")!=="0"}catch(e){}
+css.textContent+=`
+#mus{position:fixed;z-index:9999;right:10px;top:calc(52px + env(safe-area-inset-top,0px));width:min(680px,calc(100vw - 20px));max-height:calc(100vh - 70px);overflow:hidden;display:grid;grid-template-columns:1fr 1fr;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:20px;box-shadow:var(--sh),0 22px 50px -14px rgba(0,0,0,.5);transform-origin:calc(100% - 16px) -22px;transform:scale(.1);opacity:0;visibility:hidden;transition:transform .45s cubic-bezier(.2,1.2,.3,1),opacity .22s ease,visibility 0s linear .45s}
+#mus.on{transform:scale(1);opacity:1;visibility:visible;transition:transform .45s cubic-bezier(.2,1.2,.3,1),opacity .22s ease,visibility 0s}
+#mus .mL{padding:12px 10px;max-height:min(440px,calc(100vh - 80px));overflow:auto}
+#mus .mH{display:flex;justify-content:space-between;font-size:12px;color:var(--mu);padding:4px 8px 8px}
+#mus .tk{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;font-size:13.5px;color:var(--tx);background:none;border:0;border-radius:12px;padding:7px 8px;cursor:pointer}
+#mus .tk:hover{background:var(--bg)}
+#mus .tk.on{color:var(--g1);font-weight:600}
+#mus .tk em{flex:none;width:38px;height:38px;border-radius:9px}
+#mus .tk span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mus .eq{display:flex;align-items:flex-end;gap:2px;height:14px;font-style:normal}
+#mus .eq b{width:3px;background:var(--g1);border-radius:2px;animation:eqb .9s ease-in-out infinite}
+#mus .eq b:nth-child(2){animation-delay:.2s}#mus .eq b:nth-child(3){animation-delay:.4s}
+#mus .eq.ps b{animation:none;height:4px}
+@keyframes eqb{0%,100%{height:3px}50%{height:14px}}
+#mus .mR{padding:20px 18px 16px;display:flex;flex-direction:column;align-items:center;background:linear-gradient(160deg,color-mix(in srgb,var(--g1) 18%,var(--card)),color-mix(in srgb,var(--g2) 10%,var(--card)))}
+#mus .art{width:min(168px,44vw);aspect-ratio:1;border-radius:20px;display:grid;place-items:center;box-shadow:0 14px 30px -10px rgba(0,0,0,.45)}
+#mus .art svg{width:46%;height:46%;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+#mus .mt{margin-top:14px;font-size:16px;font-weight:700;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mus .ma{font-size:12.5px;color:var(--mu);margin-top:2px}
+#mus .ms{display:flex;align-items:center;gap:8px;width:100%;margin-top:16px;font-size:11.5px;color:var(--mu)}
+#mus .ms input{flex:1;min-width:0;accent-color:var(--g1)}
+#mus .mc{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:10px}
+#mus .mc button{position:relative;display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:none;color:var(--mu);cursor:pointer;padding:0}
+#mus .mc button.on{color:var(--g1)}
+#mus .mc svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#mus .mc .fl svg{fill:currentColor;stroke:none}
+#mus .mc .big{width:54px;height:54px;color:#fff;background:linear-gradient(135deg,var(--g1),var(--g2));box-shadow:0 8px 18px -6px rgba(124,131,255,.8)}
+#mus .mc .big svg{width:26px;height:26px;fill:#fff;stroke:none}
+#mus .mc .one::after{content:"1";position:absolute;font-size:9px;font-weight:700;right:7px;top:7px}
+@media (max-width:719px){#mus{grid-template-columns:1fr;width:min(340px,calc(100vw - 20px));overflow:auto}#mus .mR{order:1}#mus .mL{order:2;max-height:26vh}}`;
+/* thu nhỏ thành khung góc */
+css.textContent+=`
+#mus,#mus.on{--w:250px}
+#mus{width:min(250px,calc(100vw - 20px));grid-template-columns:1fr;border-radius:16px;overflow:auto}
+#mus .mR{order:1;padding:12px 12px 8px}
+#mus .mL{order:2;max-height:104px;padding:2px 6px 8px}
+#mus .mH{padding:2px 6px 4px;font-size:11px}
+#mus .art{width:80px;border-radius:14px}
+#mus .mt{margin-top:8px;font-size:13.5px}
+#mus .ma{font-size:11px}
+#mus .ms{margin-top:8px;font-size:10.5px;gap:6px}
+#mus .mc{margin-top:2px}
+#mus .mc button{width:32px;height:32px}
+#mus .mc svg{width:17px;height:17px}
+#mus .mc .big{width:42px;height:42px}
+#mus .mc .big svg{width:20px;height:20px}
+#mus .mc .one::after{right:4px;top:4px;font-size:8px}
+#mus .tk{padding:4px 6px;font-size:12px;gap:8px;border-radius:9px}
+#mus .tk em{width:26px;height:26px;border-radius:7px}`;
+const SV={shuf:'<svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
+ prev:'<svg viewBox="0 0 24 24"><path d="M19 20L9 12l10-8zM5 19V5"/></svg>',
+ next:'<svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8zM19 5v14"/></svg>',
+ rep:'<svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+ note:'<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>',
+ play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+ pause:'<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>'};
+const mp=document.createElement("div");mp.id="mus";
+mp.innerHTML=`<div class="mL"><div class="mH"><span>Nhạc nền</span><span id="musCnt"></span></div><div id="musList"></div></div>
+<div class="mR"><div class="art" id="musArt">${SV.note}</div><div class="mt" id="musTitle"></div><div class="ma">Nghe ôn thi K71LKT-A</div>
+<div class="ms"><span id="musCur">0:00</span><input type="range" id="musRange" min="0" max="1000" value="0" aria-label="Tua"><span id="musDur">0:00</span></div>
+<div class="mc"><button id="musShuf" aria-label="Ngẫu nhiên">${SV.shuf}</button><button id="musPrev" class="fl" aria-label="Bài trước">${SV.prev}</button><button id="musPlayB" class="big" aria-label="Phát/Dừng"></button><button id="musNx" class="fl" aria-label="Bài sau">${SV.next}</button><button id="musRep" aria-label="Lặp lại">${SV.rep}</button></div></div>`;
+document.body.appendChild(mp);
+const nm=i=>MUSIC_NAMES[MUSIC_URLS[i]]||("Bài nhạc "+(i+1));
+const grad=i=>{const h=(i*67+250)%360;return`linear-gradient(135deg,hsl(${h} 70% 62%),hsl(${(h+45)%360} 70% 46%))`};
+const playingNow=()=>started&&soundOn&&!bgm.paused;
+const isOpen=()=>mp.classList.contains("on");
+function drawList(){
+  $("musCnt").textContent=(bi+1)+"/"+MUSIC_URLS.length;
+  $("musList").innerHTML=MUSIC_URLS.map((u,i)=>{const on=i===bi&&started&&soundOn;
+    return`<button class="tk${on?" on":""}" data-i="${i}"><em style="background:${grad(i)}"></em><span>${esc(nm(i))}</span>${on?`<i class="eq${playingNow()?"":" ps"}"><b></b><b></b><b></b></i>`:""}</button>`}).join("");
+  shownBi=bi;
+}
+function drawHead(){
+  $("musTitle").textContent=nm(bi);$("musArt").style.background=grad(bi);
+  $("musPlayB").innerHTML=playingNow()?SV.pause:SV.play;
+  $("musShuf").classList.toggle("on",musShuffle);
+  $("musRep").classList.toggle("on",musOne);$("musRep").classList.toggle("one",musOne);
+  seekUI();
+}
+function seekUI(){const d=bgm.duration,t=bgm.currentTime;
+  $("musCur").textContent=mm(t);$("musDur").textContent=isFinite(d)?mm(d):"0:00";
+  if(!musSeek&&isFinite(d)&&d>0)$("musRange").value=Math.round(t/d*1000)}
+function musDraw(){drawHead();drawList()}
+/* chọn bài kế: ngẫu nhiên hoặc lần lượt (ghi đè hàm pick của app để nhạc tự chuyển theo chế độ này) */
+pick=function(){const L=MUSIC_URLS.length;let n;
+  if(musShuffle&&L>1){do{n=Math.floor(Math.random()*L)}while(n===bi)}else n=(bi+1)%L;
+  bi=n;bgm.src=MUSIC_URLS[n]};
+function musPlay(n){
+  bi=n;bgmFail=false;fails=0;bgm.src=MUSIC_URLS[n];bgm.loop=musOne;
+  if(!soundOn){soundOn=true;try{localStorage.setItem("dd_sound","1")}catch(e){}}
+  initAudio();try{AC.resume()}catch(e){}applySound();started=true;
+  if(typeof LEC!=="undefined"&&LEC&&!LEC.paused){musDraw();return}
+  bgm.play().catch(()=>{});musDraw();setTimeout(()=>{if(isOpen())musDraw()},350);
+}
+const nextIdx=()=>{const L=MUSIC_URLS.length;if(musShuffle&&L>1){let n;do{n=Math.floor(Math.random()*L)}while(n===bi);return n}return(bi+1)%L};
+const sndB=document.getElementById("snd"),sndToggle=sndB.onclick;
+sndB.onclick=e=>{if(document.getElementById("intro")){sndToggle&&sndToggle.call(sndB,e);return}
+  if(isOpen()){mp.classList.remove("on");return}musDraw();mp.classList.add("on")};
+document.addEventListener("click",e=>{if(isOpen()&&!mp.contains(e.target)&&!sndB.contains(e.target))mp.classList.remove("on")});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")mp.classList.remove("on")});
+mp.onclick=e=>{
+  const t=e.target.closest(".tk");if(t){musPlay(+t.dataset.i);return}
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="musPlayB"){
+    if(playingNow()){sndToggle&&sndToggle.call(sndB,e);setTimeout(musDraw,150);musDraw()}
+    else musPlay(bi);
+  }else if(b.id==="musNx")musPlay(nextIdx());
+  else if(b.id==="musPrev"){if(bgm.currentTime>3){bgm.currentTime=0}else musPlay((bi-1+MUSIC_URLS.length)%MUSIC_URLS.length)}
+  else if(b.id==="musShuf"){musShuffle=!musShuffle;try{localStorage.setItem("dd_shuf",musShuffle?"1":"0")}catch(e){}drawHead()}
+  else if(b.id==="musRep"){musOne=!musOne;bgm.loop=musOne;drawHead()}
+};
+$("musRange").oninput=()=>{musSeek=true;const d=bgm.duration;if(isFinite(d))$("musCur").textContent=mm($("musRange").value/1000*d)};
+$("musRange").onchange=()=>{const d=bgm.duration;if(isFinite(d))bgm.currentTime=$("musRange").value/1000*d;musSeek=false};
+bgm.addEventListener("timeupdate",()=>{if(isOpen())seekUI()});
+["play","pause","playing","loadedmetadata","ended"].forEach(ev=>bgm.addEventListener(ev,()=>{if(isOpen())musDraw()}));
 })();
 </script>
 <script type="module">
@@ -965,7 +1086,7 @@ function refresh() { homeInit(); if (filter !== "home") render(); }
     const snap = await get(ref(db, "music"));
     if (!snap.exists()) return;
     for (const it of Object.values(snap.val())) {
-      if (it && it.u && !MUSIC_URLS.includes(it.u)) MUSIC_URLS.push(it.u);
+      if (it && it.u) { if (it.name) MUSIC_NAMES[it.u] = it.name; if (!MUSIC_URLS.includes(it.u)) MUSIC_URLS.push(it.u); }
     }
   } catch (e) { console.warn("Firebase: không đọc được nhạc nền.", e); }
 })();
@@ -992,7 +1113,7 @@ $("admGo").onclick = async () => {
     $("admGo").disabled = true; say("Đang đăng…");
     try {
       await push(ref(db, "music"), { name, u });
-      MUSIC_URLS.push(u);
+      MUSIC_URLS.push(u); if (name) MUSIC_NAMES[u] = name;
       say("Đã thêm nhạc nền ✓ Bài sẽ phát khi nhạc nền chuyển bài.", "ok");
       $("admMN").value = ""; $("admMU").value = "";
     } catch (e) { say("Không đăng được: " + (e.code || e.message) + ". Kiểm tra lại Rules.", "er"); }
