@@ -714,8 +714,8 @@ try{R=new THREE.WebGLRenderer({canvas:cv,alpha:true,antialias:false,powerPrefere
 R.setClearColor(0,0);
 const coarse=matchMedia("(pointer:coarse)").matches,NF=coarse?3200:6500,NG=coarse?1800:4200,DIST=1400,Z0=-120,V2=THREE.Vector2;
 const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(40,1,10,6000);cam.position.z=DIST;
-const U={uTime:{value:0},uNdc:{value:new V2(9,9)},uPtr:{value:0},uAsp:{value:1},uTan:{value:.3},uDist:{value:DIST},uScale:{value:400},uLight:{value:0},uScroll:{value:0},uRot:{value:0},uBH:{value:0},uAud:{value:0},uTw:{value:0},uPar:{value:new V2()},uB:{value:[0,1,2,3,4].map(()=>new THREE.Vector4(0,0,-99,0))},uKick:{value:0},uBW:{value:1},uBd0:{value:new THREE.Vector4()},uBd1:{value:new THREE.Vector4()}};
-const COM=`uniform float uTime,uPtr,uAsp,uTan,uDist,uScale,uLight,uScroll,uSz,uAud,uKick,uBW;uniform vec2 uNdc,uPar;uniform vec4 uB[5],uBd0,uBd1;varying float vA;varying vec3 vC;
+const U={uTime:{value:0},uNdc:{value:new V2(9,9)},uPtr:{value:0},uAsp:{value:1},uTan:{value:.3},uDist:{value:DIST},uScale:{value:400},uLight:{value:0},uScroll:{value:0},uRot:{value:0},uBH:{value:0},uAud:{value:0},uTw:{value:0},uPar:{value:new V2()},uB:{value:[0,1,2,3,4].map(()=>new THREE.Vector4(0,0,-99,0))},uKick:{value:0},uBW:{value:1},uInt:{value:0},uBd0:{value:new THREE.Vector4()},uBd1:{value:new THREE.Vector4()}};
+const COM=`uniform float uTime,uPtr,uAsp,uTan,uDist,uScale,uLight,uScroll,uSz,uAud,uKick,uBW,uInt;uniform vec2 uNdc,uPar;uniform vec4 uB[5],uBd0,uBd1;varying float vA;varying vec3 vC;
 float bnd(float u){float k=clamp(u,0.,.999)*8.;vec4 a=max(1.-abs(k-vec4(.5,1.5,2.5,3.5)),0.),b=max(1.-abs(k-vec4(4.5,5.5,6.5,7.5)),0.);return dot(a,uBd0)+dot(b,uBd1);}
 float disturb(inout vec3 p){float dp=uDist-p.z,k=dp/uDist;vec2 hf=vec2(uAsp,1.)*uTan*dp;vec2 d=p.xy-uNdc*hf;float L=length(d),Rr=200.*k;
 float f=exp(-(L*L)/(Rr*Rr))*uPtr;vec2 dir=d/max(L,1.);p.xy+=dir*f*130.*k+vec2(-dir.y,dir.x)*f*80.*k;p.z+=f*170.;
@@ -723,12 +723,12 @@ for(int i=0;i<5;i++){float sw=i>=3?uBW:1.;float age=uTime-uB[i].z;if(uB[i].w>.01
 return f;}`;
 const VF=COM+`attribute vec4 sd;void main(){vec3 p=position;float ph=sd.x,sp=sd.y,am=sd.z;
 p.x+=sin(uTime*sp*.35+ph)*55.*am;p.z+=cos(uTime*sp*.28+ph)*45.*am;p.xy-=uPar*(p.z+500.)*.05;
-float par=.3+.7*smoothstep(-600.,500.,p.z);float cl=mod(p.y+uTime*13.*sp+uScroll*par*.55+900.,1800.)-900.;p.y=cl+uAud*am*70.*(.5+.5*sin(ph*5.));p.z+=uAud*am*90.;float bu=clamp(abs(p.x)/(uAsp*uTan*(uDist-p.z))+(fract(ph*13.7)-.5)*.3,0.,1.),e=bnd(bu);p.y+=e*am*150.;p.z+=e*am*130.;p.xy*=1.+uKick*.05;
-float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uSz*sd.w*(1.+f*1.7+uAud*.9+e*1.8)*(uScale/max(-mv.z,1.));
-float tw=.55+.45*sin(uTime*(.7+sp*1.6)+ph*3.1);vA=clamp(tw*(.5+f*1.5+uAud*.8+e*1.1)*(1.-smoothstep(.72,1.,abs(cl)/900.)),0.,1.);
+float par=.3+.7*smoothstep(-600.,500.,p.z);float cl=mod(p.y+uTime*13.*sp+uScroll*par*.55+900.,1800.)-900.;p.y=cl+uAud*am*70.*(.5+.5*sin(ph*5.));p.z+=uAud*am*90.;float bu=clamp(abs(p.x)/(uAsp*uTan*(uDist-p.z))+(fract(ph*13.7)-.5)*.3,0.,1.),e=bnd(bu);float ig=1.+uInt*1.1;p.y+=(e*150.*ig+uKick*(80.+uInt*120.))*am;p.z+=(e*130.*ig+uKick*(60.+uInt*100.))*am;p.xy*=1.+uKick*(.04+uInt*.05);
+float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uSz*sd.w*(1.+f*1.7+uAud*.9+e*1.8*ig+uKick*(.4+uInt*.8))*(uScale/max(-mv.z,1.));
+float tw=.55+.45*sin(uTime*(.7+sp*1.6)+ph*3.1);vA=clamp(tw*(.5+f*1.5+uAud*.8+e*1.1+uKick*.4)*(1.-smoothstep(.72,1.,abs(cl)/900.)),0.,1.);
 vC=mix(mix(vec3(.62,.68,1.),vec3(.86,.62,1.),fract(ph*.318)),vec3(1.,.95,.8),clamp(f*1.2+uAud*.5+e*.7,0.,1.));gl_Position=projectionMatrix*mv;}`;
 const VG=COM+`attribute vec4 g;uniform vec3 uGC;uniform vec2 uTilt;uniform float uRot,uBH,uTw;void main(){float r=g.x,th=g.y+uRot*.75*(1.25-r*.7)+uTw;
-vec3 q=vec3(cos(th)*r,g.z*(1.-r)*.10+sin(th*3.+uTime*.7)*.01,sin(th)*r)*uGC.z*(1.+uAud*.16+uKick*.1);
+vec3 q=vec3(cos(th)*r,g.z*(1.-r)*.10+sin(th*3.+uTime*.7)*.01,sin(th)*r)*uGC.z*(1.+uAud*.16+uKick*(.08+uInt*.1));
 float cx=cos(uTilt.x),sx=sin(uTilt.x);q=vec3(q.x,q.y*cx-q.z*sx,q.y*sx+q.z*cx);
 float cz=cos(uTilt.y),sz=sin(uTilt.y);q=vec3(q.x*cz-q.y*sz,q.x*sz+q.y*cz,q.z);
 vec3 p=vec3(uGC.xy,-120.)+q;p.xy-=uPar*(p.z+500.)*.03;float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);
@@ -799,7 +799,7 @@ function feat(b,m,T,dt){
   const lvl=Math.min(1,Math.max(0,(b-.45)*1.8));
   return Math.min(1,Math.max(kick*.95,lvl*.75+Math.max(0,m-.35)*.6))}
 const NB=8,bd=new Float32Array(NB),bmx=new Float32Array(NB).fill(.25),BE=[1,3,5,9,15,27,49,91,200],BM={},BMp={};let bmFi=-1,bmCur=null,seenB=-9,bs=0;
-let mode="idle",pe=0,ckT=0,ckP=0,ckC=-1;const lvN=new Float32Array(NB),hud=/dbg/.test(location.hash)?document.body.appendChild(Object.assign(document.createElement("div"),{style:"position:fixed;left:8px;top:64px;z-index:999;font:12px monospace;color:#0f0;background:#000a;padding:4px 6px;border-radius:6px;pointer-events:none"})):null;
+let mode="idle",tI=.4,inten=0,pe=0,ckT=0,ckP=0,ckC=-1;const lvN=new Float32Array(NB),hud=/dbg/.test(location.hash)?document.body.appendChild(Object.assign(document.createElement("div"),{style:"position:fixed;left:8px;top:64px;z-index:999;font:12px monospace;color:#0f0;background:#000a;padding:4px 6px;border-radius:6px;pointer-events:none"})):null;
 function setB(i,n,dt){bd[i]+=(n-bd[i])*(n>bd[i]?1-Math.pow(1e-12,dt):1-Math.pow(.005,dt))}
 /* đồng hồ mượt: currentTime nhảy theo bậc 20-50ms trên nhiều trình duyệt, nên ngoại suy giữa hai lần cập nhật */
 function clk(){const n=performance.now()/1000,ct=bgm.currentTime,est=ckT+(n-ckP);
@@ -808,16 +808,16 @@ function clk(){const n=performance.now()/1000,ct=bgm.currentTime,est=ckT+(n-ckP)
  return est}
 /* phát hiện nhịp trực tiếp: dựa vào độ vọt của bass/trầm so với mức trung bình ngay trước đó, đã chuẩn hóa theo âm lượng */
 function beat2(T,dt){const e=lvN[0]*.6+lvN[1]*.4,fx=e-pe;pe+=(e-pe)*(1-Math.pow(1e-3,dt));
- if(fx>.16&&e>.3&&T-lastB>.17){lastB=T;kick=1;twS+=.4}
+ tI=Math.min(1,(bd[0]+bd[1]+bd[2]+bd[3]+bd[4]+bd[5])*.25);if(fx>.1&&e>.25&&T-lastB>.15){lastB=T;kick=1;twS+=.4}
  kick=Math.max(0,kick-dt*3.6);return Math.min(1,Math.max(kick*.95,bd[0]*.5+bd[1]*.35+bd[3]*.25))}
-function fakeB(a,T,dt){mode=a>0?"fake":"idle";for(let i=0;i<NB;i++)setB(i,Math.min(1,a*(1.05-i*.09)*(.65+.35*Math.sin(T*(1.7+i*.9)+i*2.1))),dt)}
+function fakeB(a,T,dt){mode=a>0?"fake":"idle";tI=a*.8;for(let i=0;i<NB;i++)setB(i,Math.min(1,a*(1.05-i*.09)*(.65+.35*Math.sin(T*(1.7+i*.9)+i*2.1))),dt)}
 function liveB(dt){mode="live";for(let i=0;i<NB;i++){let s=0;const lo=BE[i],hi=BE[i+1];for(let j=lo;j<hi;j++)s+=ad2[j];const v=s/(hi-lo)/255;bmx[i]=Math.max(bmx[i]*Math.pow(.9,dt),v,.12);lvN[i]=Math.min(1,Math.pow(v/bmx[i],1.6));setB(i,lvN[i],dt)}}
-function beatWave(){const W=innerWidth,H=innerHeight,c=v=>Math.max(-1,Math.min(1,v));U.uB.value[3+(bs++&1)].set(c(gx/W*2-1),c(1-gy/H*2),U.uTime.value,.5)}
+function beatWave(){const W=innerWidth,H=innerHeight,c=v=>Math.max(-1,Math.min(1,v));U.uB.value[3+(bs++&1)].set(c(gx/W*2-1),c(1-gy/H*2),U.uTime.value,.45+.5*inten)}
 /* Bản đồ nhịp: tải + giải mã mp3 ngoài luồng phát (không đụng vào thẻ audio, chạy được cả iOS), phân tích 8 dải tần + vị trí từng nhịp, rồi đọc theo bgm.currentTime. Chỉnh độ trễ loa/tai nghe bằng window.danceOffset (giây). */
 function fromMap(M,T,dt){mode="map";const ct=Math.max(0,clk()-(AC&&AC.outputLatency||0)+(window.danceOffset||0)),fi=Math.max(0,Math.min(M.n-1,Math.floor(ct*M.fps-.5)));
  if(M!==bmCur||fi<bmFi||fi-bmFi>40){bmFi=fi;bmCur=M}
  else{for(let k=bmFi+1;k<=fi;k++)if(M.bt[k]){kick=.5+M.bt[k]/510;twS+=.4;lastB=T}bmFi=fi}
- kick=Math.max(0,kick-dt*3.6);const o=fi*NB;for(let i=0;i<NB;i++)setB(i,M.bd[o+i]/255,dt);
+ kick=Math.max(0,kick-dt*3.6);const o=fi*NB;tI=M.it[fi]/255;for(let i=0;i<NB;i++)setB(i,M.bd[o+i]/255,dt);
  return Math.min(1,Math.max(kick*.95,bd[0]*.5+bd[1]*.35+bd[3]*.25))}
 function fft(re,im,n){for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
  for(let l=2;l<=n;l<<=1){const a=-6.283185307/l,wr=Math.cos(a),wi=Math.sin(a),h=l>>1;
@@ -837,13 +837,17 @@ async function mapTrack(u){
   const out=new Uint8Array(n*NB),tmp=new Float32Array(n);
   for(let b=0;b<NB;b++){for(let t=0;t<n;t++)tmp[t]=raw[t*NB+b];const so=tmp.slice().sort(),hi=so[Math.floor(n*.97)]||1,lo=so[Math.floor(n*.1)]||0;
    for(let t=0;t<n;t++)out[t*NB+b]=Math.pow(Math.max(0,Math.min(1,(tmp[t]-lo)/Math.max(hi-lo,1e-4))),1.5)*255}
+  const iv=new Float32Array(n),ip=new Float64Array(n+1),it=new Uint8Array(n),sv=new Float32Array(n);
+  for(let t=0;t<n;t++){let m=0;for(let b=0;b<6;b++)m+=out[t*NB+b];iv[t]=m/6/255;ip[t+1]=ip[t]+iv[t]}
+  for(let t=0;t<n;t++){const a=Math.max(0,t-43),b=Math.min(n,t+44);sv[t]=(ip[b]-ip[a])/(b-a)}
+  {const so2=sv.slice().sort(),i0=so2[Math.floor(n*.1)],i1=so2[Math.floor(n*.95)];for(let t=0;t<n;t++)it[t]=Math.max(0,Math.min(1,(sv[t]-i0)/Math.max(i1-i0,1e-3)))*255}
   const en=new Float32Array(n),fl=new Float32Array(n),pre=new Float64Array(n+1),bt=new Uint8Array(n);let last=-99;
   for(let t=0;t<n;t++)en[t]=(out[t*NB]+out[t*NB+1]*.7)/255;
   const WB=[1,.8,.6,.4,.3,.2];for(let t=3;t<n;t++){let f=0;for(let b=0;b<6;b++){const o=t*NB+b;f+=WB[b]*Math.max(0,out[o]-(out[o-NB]+out[o-2*NB]+out[o-3*NB])/3)/255}fl[t]=f}
   for(let t=0;t<n;t++)pre[t+1]=pre[t]+fl[t];
   for(let t=3;t<n-1;t++){const a=Math.max(0,t-21),b=Math.min(n,t+22),lm=(pre[b]-pre[a])/(b-a);
-   if(fl[t]>lm*1.5+.08&&fl[t]>=fl[t-1]&&fl[t]>=fl[t+1]&&t-last>=8){bt[t]=Math.min(255,80+fl[t]*100|0);last=t}}
-  BM[u]={fps:sr/N,n,bd:out,bt};
+   if(fl[t]>lm*1.25+.06&&fl[t]>=fl[t-1]&&fl[t]>=fl[t+1]&&t-last>=8){bt[t]=Math.min(255,80+fl[t]*100|0);last=t}}
+  BM[u]={fps:sr/N,n,bd:out,bt,it};
  }catch(e){BMp[u]=2}}
 function aud(T,dt){let a=0;
  try{
@@ -862,7 +866,7 @@ function aud(T,dt){let a=0;
   else{kick=Math.max(0,kick-dt*3.6);fakeB(0,T,dt)}
  }catch(e){}
  aE+=(a-aE)*(a>aE?1-Math.pow(1e-9,dt):1-Math.pow(.03,dt));U.uAud.value=aE;
- twV+=(twS-twV)*(1-Math.pow(.0006,dt));U.uTw.value=twV;U.uKick.value=kick;U.uBd0.value.set(bd[0],bd[1],bd[2],bd[3]);U.uBd1.value.set(bd[4],bd[5],bd[6],bd[7]);if(lastB!==seenB){seenB=lastB;beatWave()}if(hud)hud.textContent=mode+(bgm.currentSrc&&BMp[bgm.currentSrc]===2?" (CORS lỗi)":"")+" "+Array.from(bd,v=>"▁▂▃▄▅▆▇█"[Math.min(7,v*8|0)]).join("")}
+ twV+=(twS-twV)*(1-Math.pow(.0006,dt));U.uTw.value=twV;inten+=(tI-inten)*(1-Math.pow(.05,dt));U.uInt.value=inten;U.uKick.value=kick;U.uBd0.value.set(bd[0],bd[1],bd[2],bd[3]);U.uBd1.value.set(bd[4],bd[5],bd[6],bd[7]);if(lastB!==seenB){seenB=lastB;beatWave()}if(hud)hud.textContent=mode+(bgm.currentSrc&&BMp[bgm.currentSrc]===2?" (CORS lỗi)":"")+" "+Array.from(bd,v=>"▁▂▃▄▅▆▇█"[Math.min(7,v*8|0)]).join("")}
 let T=0,last=performance.now(),wasL=null,lowed=false;
 function frame(now){requestAnimationFrame(frame);if(document.hidden){last=now;return}
  const dt=Math.min((now-last)/1000,.05);last=now;T+=dt;U.uTime.value=T;
