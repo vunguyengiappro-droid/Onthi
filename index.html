@@ -369,6 +369,9 @@ button,label.t,#intro,input[type=checkbox]{touch-action:manipulation;-webkit-tap
 /* ===== NGHE ÔN THI: danh sách bài, trình phát ===== */
 .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .tile.sc{cursor:pointer;border-left:3px solid var(--c);touch-action:manipulation}
+.qzgo{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:12px 10px;border:0;border-radius:14px;font:inherit;font-size:15px;font-weight:700;color:#fff;cursor:pointer;touch-action:manipulation;background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 55%,#6d28d9));box-shadow:0 8px 18px -8px var(--c)}
+.qzgo .ic{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.qzgo:active{transform:scale(.97)}
 .sc .scn{display:flex;align-items:center;font-size:13px;font-weight:600;margin-bottom:4px}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;margin:0 -2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
@@ -543,9 +546,9 @@ plRange.onchange=()=>{const d=LEC.duration;if(isFinite(d))LEC.currentTime=plRang
 /* ===== GIAO DIỆN ===== */
 function homeInit(){
   pAll.textContent=total();
-  sgrid.innerHTML=Object.keys(S).map(k=>`<div class="tile sc" data-k="${k}" style="--c:${S[k][1]}"><div class="scn"><i class="dot" style="background:${S[k][1]}"></i>${S[k][0]}</div><div class="big">${Q[k].length}</div><div class="lbl">bài nghe</div>${window.qzCount&&qzCount(k)?`<div class="lbl">${qzCount(k)} trắc nghiệm</div>`:""}</div>`).join("");
+  sgrid.innerHTML=Object.keys(S).map(k=>`<div class="tile sc" data-k="${k}" style="--c:${S[k][1]}"><div class="scn"><i class="dot" style="background:${S[k][1]}"></i>${S[k][0]}</div><div class="big">${Q[k].length}</div><div class="lbl">bài nghe</div>${window.qzCount&&qzCount(k)?`<button type="button" class="qzgo" data-q="${k}"><svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>${qzCount(k)} trắc nghiệm</button>`:""}</div>`).join("");
 }
-sgrid.onclick=e=>{const t=e.target.closest(".sc");if(!t)return;sub=t.dataset.k;document.querySelector('#tabs button[data-f="audio"]').click()};
+sgrid.onclick=e=>{const q=e.target.closest(".qzgo");if(q){e.stopPropagation();window.qzOpen&&qzOpen(q.dataset.q);return}const t=e.target.closest(".sc");if(!t)return;sub=t.dataset.k;document.querySelector('#tabs button[data-f="audio"]').click()};
 function render(){
   const L=document.getElementById("list");L.innerHTML="";
   if(filter==="audio"){
@@ -1560,11 +1563,7 @@ document.head.appendChild(qzCss);
 const qzBox = document.createElement("div"); qzBox.id = "qz";
 qzBox.innerHTML = '<div class="qh"><b id="qzT">Bài trắc nghiệm</b><button id="qzX">Đóng</button></div><div id="qzL"></div><iframe id="qzF" hidden sandbox="allow-scripts allow-modals allow-same-origin"></iframe>';
 document.body.appendChild(qzBox);
-const qzBtn = document.createElement("button");
-qzBtn.id = "qzBtn"; qzBtn.style.setProperty("--c", "#38bdf8");
-qzBtn.innerHTML = '<svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg><span>Trắc nghiệm</span>';
-document.querySelector(".foot").appendChild(qzBtn);
-qzBtn.onclick = () => { qzDraw(); qzBox.classList.add("on"); };
+window.qzOpen = k => { if (k) sub = k; qzDraw(); qzBox.classList.add("on"); };
 function qzDraw() {
   const chips = '<div class="chips"><button data-s="all" class="' + (sub === "all" ? "on" : "") + '">Tất cả</button>'
     + Object.keys(S).map(k => `<button data-s="${k}" style="--c:${S[k][1]}" class="${sub === k ? "on" : ""}">${S[k][0]}</button>`).join("") + "</div>";
