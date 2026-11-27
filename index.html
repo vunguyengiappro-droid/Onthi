@@ -543,7 +543,7 @@ plRange.onchange=()=>{const d=LEC.duration;if(isFinite(d))LEC.currentTime=plRang
 /* ===== GIAO DIỆN ===== */
 function homeInit(){
   pAll.textContent=total();
-  sgrid.innerHTML=Object.keys(S).map(k=>`<div class="tile sc" data-k="${k}" style="--c:${S[k][1]}"><div class="scn"><i class="dot" style="background:${S[k][1]}"></i>${S[k][0]}</div><div class="big">${Q[k].length}</div><div class="lbl">bài nghe</div></div>`).join("");
+  sgrid.innerHTML=Object.keys(S).map(k=>`<div class="tile sc" data-k="${k}" style="--c:${S[k][1]}"><div class="scn"><i class="dot" style="background:${S[k][1]}"></i>${S[k][0]}</div><div class="big">${Q[k].length}</div><div class="lbl">bài nghe</div>${window.qzCount&&qzCount(k)?`<div class="lbl">${qzCount(k)} trắc nghiệm</div>`:""}</div>`).join("");
 }
 sgrid.onclick=e=>{const t=e.target.closest(".sc");if(!t)return;sub=t.dataset.k;document.querySelector('#tabs button[data-f="audio"]').click()};
 function render(){
@@ -979,8 +979,8 @@ box.innerHTML=`<div class="bx">
  </div>
  <div id="admForm" hidden>
   <label>Quản lý</label><select id="admTy"><option value="q">Bài nghe ôn thi</option><option value="m">Nhạc nền</option><option value="t">Bài trắc nghiệm (HTML)</option></select>
+  <div id="admKF"><label>Môn</label><select id="admK"></select></div>
   <div id="admQF">
-  <label>Môn</label><select id="admK"></select>
   <label>Số câu</label><input id="admN" type="number" min="1">
   <label>Nội dung đề</label><textarea id="admQ"></textarea>
   <label>Link file mp3</label><input id="admU" type="url" placeholder="https://files.catbox.moe/xxxx.mp3">
@@ -1413,7 +1413,7 @@ function drawMgr() {
   }
 }
 $("admTy").onchange = () => {
-  const v = $("admTy").value, m = v === "m"; $("admQF").hidden = v !== "q"; $("admMF").hidden = !m; $("admTF").hidden = v !== "t";
+  const v = $("admTy").value, m = v === "m"; $("admQF").hidden = v !== "q"; $("admMF").hidden = !m; $("admTF").hidden = v !== "t"; $("admKF").hidden = m;
   resetForm(); drawMgr(); say("");
 };
 $("admK").onchange = () => { if (!edit) nextN(); drawMgr(); };
@@ -1453,7 +1453,7 @@ async function doDelete(i, b) {
 $("admDl").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
   const i = +b.dataset.i;
-  if (isT()) { delQz(i, b); return; }
+  if (isT()) { if (b.dataset.a === "g") assignQz(i, b); else delQz(i, b); return; }
   if (b.dataset.a === "e") startEdit(i); else doDelete(i, b);
 };
 
@@ -1555,7 +1555,7 @@ qzCss.textContent = `#qz{position:fixed;inset:0;z-index:100000;background:var(--
 #qz .qh b{font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#qz .qh button{flex:none;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:10px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer}
 #qzL{flex:1;overflow:auto;padding:14px;width:100%;max-width:720px;margin:0 auto}#qzL[hidden],#qzF[hidden]{display:none}
 #qzL .qi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;margin:0 0 10px;padding:14px;border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
-#qzL .qi span{color:var(--mu);font-size:12px;flex:none}#qzL .qe{color:var(--mu)}#qzF{flex:1;width:100%;border:0;background:var(--bg)}`;
+#qzL .qi span{color:var(--mu);font-size:12px;flex:none}#qzL .chips{margin:0 0 12px}#qzL .qm{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}#qzL .qc{font-style:normal;font-size:11px;font-weight:700;color:#fff;padding:2px 9px;border-radius:99px}#qzL .qc.qn{background:var(--mu)}#qzL .qe{color:var(--mu)}#qzF{flex:1;width:100%;border:0;background:var(--bg)}`;
 document.head.appendChild(qzCss);
 const qzBox = document.createElement("div"); qzBox.id = "qz";
 qzBox.innerHTML = '<div class="qh"><b id="qzT">Bài trắc nghiệm</b><button id="qzX">Đóng</button></div><div id="qzL"></div><iframe id="qzF" hidden sandbox="allow-scripts allow-modals allow-same-origin"></iframe>';
@@ -1564,14 +1564,25 @@ const qzBtn = document.createElement("button");
 qzBtn.id = "qzBtn"; qzBtn.style.setProperty("--c", "#38bdf8");
 qzBtn.innerHTML = '<svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg><span>Trắc nghiệm</span>';
 document.querySelector(".foot").appendChild(qzBtn);
-qzBtn.onclick = () => qzBox.classList.add("on");
+qzBtn.onclick = () => { qzDraw(); qzBox.classList.add("on"); };
 function qzDraw() {
-  $("qzL").innerHTML = QZ.length ? QZ.map((z, i) => `<button class="qi" data-i="${i}"><b>${esc(z.name)}</b><span>${z.kb} KB</span></button>`).join("")
-    : '<p class="qe">Chưa có bài trắc nghiệm nào. Quản trị: bấm Thêm bài, chọn "Bài trắc nghiệm (HTML)" để tải file lên.</p>';
+  const chips = '<div class="chips"><button data-s="all" class="' + (sub === "all" ? "on" : "") + '">Tất cả</button>'
+    + Object.keys(S).map(k => `<button data-s="${k}" style="--c:${S[k][1]}" class="${sub === k ? "on" : ""}">${S[k][0]}</button>`).join("") + "</div>";
+  const list = QZ.map((z, i) => [z, i]).filter(([z]) => sub === "all" || z.k === sub);
+  const body = list.length ? list.map(([z, i]) => {
+    const c = S[z.k];
+    return `<button class="qi" data-i="${i}"><div class="qm"><b>${esc(z.name)}</b>${c ? `<em class="qc" style="background:${c[1]}">${c[0]}</em>` : (sub === "all" ? '<em class="qc qn">Chưa gán môn</em>' : "")}</div><span>${z.kb} KB</span></button>`;
+  }).join("")
+    : (sub === "all" ? '<p class="qe">Chưa có bài trắc nghiệm nào. Quản trị: bấm Thêm bài, chọn "Bài trắc nghiệm (HTML)" và chọn môn để tải file lên.</p>'
+                     : '<p class="qe">Môn này chưa có bài trắc nghiệm.<br>Sắp cập nhật 📝</p>');
+  $("qzL").innerHTML = chips + body;
 }
+window.qzCount = k => QZ.filter(z => z.k === k).length;
 function qzBack() { $("qzF").hidden = true; $("qzF").srcdoc = ""; $("qzL").hidden = false; $("qzT").textContent = "Bài trắc nghiệm"; $("qzX").textContent = "Đóng"; }
 $("qzX").onclick = () => { if (!$("qzF").hidden) qzBack(); else qzBox.classList.remove("on"); };
 $("qzL").onclick = async e => {
+  const c = e.target.closest(".chips button");
+  if (c) { sub = c.dataset.s; if (typeof render === "function") render(); qzDraw(); return; }
   const b = e.target.closest(".qi"); if (!b) return;
   const z = QZ[+b.dataset.i], msg = t => "<p style='font:16px sans-serif;padding:20px'>" + t + "</p>";
   $("qzT").textContent = z.name; $("qzX").textContent = "← Danh sách"; $("qzL").hidden = true; $("qzF").hidden = false;
@@ -1585,11 +1596,23 @@ $("qzL").onclick = async e => {
     const s = await get(ref(db, "quizmeta"));
     if (s.exists()) QZ = Object.entries(s.val()).filter(([k, v]) => v && v.name).map(([key, v]) => ({ key, ...v })).sort((a, b) => (a.t || 0) - (b.t || 0));
   } catch (e) { console.warn("Firebase: không đọc được bài trắc nghiệm.", e); }
-  qzDraw();
+  qzDraw(); if (typeof homeInit === "function") homeInit();
 })();
 function drawQz() {
-  $("admMh").textContent = "Bài trắc nghiệm đang có (" + QZ.length + ")";
-  $("admDl").innerHTML = QZ.map((z, i) => `<div class="di"><span>${esc(z.name)} · ${z.kb} KB</span><button data-a="d" data-i="${i}">Xóa</button></div>`).join("");
+  const k = $("admK").value, mine = [], free = [];
+  QZ.forEach((z, i) => { if (z.k === k) mine.push(i); else if (!S[z.k]) free.push(i); });
+  $("admMh").textContent = "Trắc nghiệm " + S[k][0] + " — " + mine.length + " bài";
+  const r = (i, g) => { const z = QZ[i]; return `<div class="di"><span>${esc(z.name)} · ${z.kb} KB</span>${g ? `<button class="ed" data-a="g" data-i="${i}">Gán vào môn này</button>` : ""}<button data-a="d" data-i="${i}">Xóa</button></div>`; };
+  $("admDl").innerHTML = mine.map(i => r(i, 0)).join("")
+    + (free.length ? `<div class="dh">Chưa gán môn (${free.length})</div>` + free.map(i => r(i, 1)).join("") : "");
+}
+async function assignQz(i, b) {
+  const z = QZ[i], k = $("admK").value; b.disabled = true; say("Đang gán môn…");
+  try {
+    const m = { name: z.name, kb: z.kb, t: z.t || Date.now(), k };
+    await set(ref(db, "quizmeta/" + z.key), m); Object.assign(z, m);
+    qzDraw(); drawQz(); if (window.homeInit) homeInit(); say("Đã gán vào " + S[k][0] + " ✓", "ok");
+  } catch (e) { b.disabled = false; errMsg("gán môn", e); }
 }
 async function addQz() {
   const f = $("admTFile").files[0];
@@ -1602,10 +1625,10 @@ async function addQz() {
     if (!/<script|<body|<html/i.test(html)) throw { message: "File không giống một trang HTML" };
     const r = push(ref(db, "quizmeta"));
     await set(ref(db, "quizhtml/" + r.key), html);
-    const m = { name, kb: Math.round(html.length / 1024), t: Date.now() };
+    const k = $("admK").value, m = { name, kb: Math.round(html.length / 1024), t: Date.now(), k };
     await set(r, m); QZ.push({ key: r.key, ...m });
-    $("admTN").value = ""; $("admTFile").value = ""; qzDraw(); drawQz();
-    say("Đã tải lên ✓ Mở ở nút Trắc nghiệm trên trang chủ.", "ok");
+    $("admTN").value = ""; $("admTFile").value = ""; qzDraw(); drawQz(); if (window.homeInit) homeInit();
+    say("Đã tải lên môn " + S[k][0] + " ✓ Mở ở nút Trắc nghiệm trên trang chủ.", "ok");
   } catch (e) { errMsg("đăng", e); }
   $("admGo").disabled = false;
 }
@@ -1614,7 +1637,7 @@ async function delQz(i, b) {
   const z = QZ[i]; b.disabled = true; say("Đang xóa…");
   try {
     await remove(ref(db, "quizmeta/" + z.key)); await remove(ref(db, "quizhtml/" + z.key));
-    QZ.splice(i, 1); qzDraw(); drawQz(); say("Đã xóa ✓", "ok");
+    QZ.splice(i, 1); qzDraw(); drawQz(); if (window.homeInit) homeInit(); say("Đã xóa ✓", "ok");
   } catch (e) { b.disabled = false; errMsg("xóa", e); }
 }
 $("admGo").onclick = () => { if (isT()) addQz(); else if (edit) saveEdit(); else if (isM()) addMusic(); else addQ(); };
