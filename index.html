@@ -1152,7 +1152,16 @@ $("musRange").onchange=()=>{const d=YTX.on&&yt?yt.getDuration():bgm.duration;if(
 bgm.addEventListener("timeupdate",()=>{if(isOpen())seekUI()});
 ["play","pause","playing","loadedmetadata","ended"].forEach(ev=>bgm.addEventListener(ev,()=>{if(isOpen())musDraw()}));
 /* ===== TÌM & PHÁT NHẠC YOUTUBE (YouTube Data API + trình phát nhúng chính thức) ===== */
-const YT_KEY="AIzaSyCSb5-s-NqVyQYPbEKM2gvpcR9KPwwpjME";
+const YT_KEYS=["AIzaSyDTjbL12JVioYVfiavzjlHn53FkpQuJP4o","AIzaSyD_R1eZG_y4WfYrvdZ0FnxkwydGutOe4GQ","AIzaSyDZbhzeF0mdfcGiwG37ctzwslrE99QxG4I","AIzaSyCSb5-s-NqVyQYPbEKM2gvpcR9KPwwpjME"];
+/* xoay key: key nào hết quota thì nhớ tới 0h giờ Thái Bình Dương (lúc Google reset), tự chuyển key kế tiếp ngay trong cùng lần tìm */
+const ytKS=(()=>{const day=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
+  let st={i:0,d:{}};try{st=Object.assign(st,JSON.parse(localStorage.getItem("dd_ytk")||"{}"))}catch(e){}
+  if(!st.d||typeof st.d!=="object")st.d={};
+  const bad={},save=()=>{try{localStorage.setItem("dd_ytk",JSON.stringify(st))}catch(e){}};
+  const dead=k=>bad[k]||st.d[k]===day();
+  return{pick(){const n=YT_KEYS.length;for(let j=0;j<n;j++){const i=((st.i|0)+j)%n;if(!dead(YT_KEYS[i])){st.i=i;return YT_KEYS[i]}}return null},
+    fail(k,quota){if(quota){st.d[k]=day()}else bad[k]=1;st.i=(YT_KEYS.indexOf(k)+1)%YT_KEYS.length;save()},
+    ok(){save()}}})();
 var yt=null,ytList=[],ytIdx=-1,ytTimer=0,ytMsg="",ytTaps=[];
 css.textContent+=`
 #mus .ys{display:flex;gap:6px;padding:0 6px 8px}
@@ -1172,9 +1181,10 @@ css.textContent+=`
 #mus .yi{flex:1;min-width:0}
 #mus .yi b{display:block;font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #mus .yi i{display:block;font-style:normal;font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#mus .ytb{display:none;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 14px 30px -10px rgba(0,0,0,.45)}
+#mus .mR{min-width:0}
+#mus .ytb{display:none;position:relative;flex:none;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;contain:layout paint;box-shadow:0 14px 30px -10px rgba(0,0,0,.45)}
 #mus.yt .ytb{display:block}#mus.yt .art{display:none}
-#mus .ytb iframe{width:100%;height:100%;border:0;display:block}
+#mus .ytb iframe,#mus .ytb #ytP{position:absolute;left:0;top:0;width:100%!important;height:100%!important;max-width:100%;border:0;display:block}
 #mus .ytt{display:none;margin-top:8px;font-size:11.5px;padding:5px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--bd);color:var(--tx)}
 #mus.yt .ytt{display:block}
 #mus{-webkit-text-size-adjust:100%;text-size-adjust:100%;max-height:calc(100dvh - 70px)}
@@ -1187,10 +1197,18 @@ function ytDraw(){const R=$("ytRes");
   R.innerHTML=`<div class="yh"><span>${esc(ytMsg||("YouTube · "+ytList.length+" kết quả"))}</span><button data-x="1" type="button">Đóng</button></div>`
    +ytList.map((v,i)=>`<button class="yk${YTX.on&&i===ytIdx?" on":""}" data-y="${i}" type="button"><img src="${esc(v.th)}" alt=""><div class="yi"><b>${esc(v.t)}</b><i>${esc(v.c)}</i></div>${YTX.on&&i===ytIdx?`<i class="eq${YTX.pl?"":" ps"}"><b></b><b></b><b></b></i>`:""}</button>`).join("")}
 async function ytSearch(q){
-  const u="https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&videoCategoryId=10&maxResults=15&q="+encodeURIComponent(q)+"&key="+YT_KEY;
-  const r=await fetch(u),j=await r.json();
-  if(!r.ok){const m=(j.error&&j.error.message)||("HTTP "+r.status);throw new Error(/quota/i.test(m)?"Hết lượt tìm YouTube hôm nay":m)}
-  return(j.items||[]).filter(x=>x.id&&x.id.videoId).map(x=>({id:x.id.videoId,t:dec(x.snippet.title),c:dec(x.snippet.channelTitle),th:(x.snippet.thumbnails.default||{}).url||""}))}
+  const base="https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&videoCategoryId=10&maxResults=15&q="+encodeURIComponent(q)+"&key=";
+  for(let n=0;n<YT_KEYS.length;n++){
+    const k=ytKS.pick();if(!k)break;
+    let r,j;
+    try{r=await fetch(base+k);j=await r.json()}catch(e){throw new Error("Lỗi mạng, thử lại nhé")}
+    if(r.ok){ytKS.ok();return(j.items||[]).filter(x=>x.id&&x.id.videoId).map(x=>({id:x.id.videoId,t:dec(x.snippet.title),c:dec(x.snippet.channelTitle),th:(x.snippet.thumbnails.default||{}).url||""}))}
+    const er=j.error||{},rs=((er.errors&&er.errors[0]&&er.errors[0].reason)||"")+" "+(er.status||"")+" "+(er.message||"");
+    const quota=r.status===429||/quota|limitExceeded|rateLimit/i.test(rs);
+    const badKey=/keyInvalid|API_KEY_INVALID|accessNotConfigured|ipRefererBlocked|forbidden|disabled|blocked|API key/i.test(rs);
+    if(quota||badKey){ytKS.fail(k,quota);continue}
+    throw new Error(er.message||("HTTP "+r.status))}
+  throw new Error("Hết lượt tìm YouTube hôm nay (đã thử hết các key)")}
 async function ytGo(){
   const q=$("ytQ").value.trim();if(!q)return;
   ytMsg="Đang tìm…";ytList=[];ytDraw();
@@ -1221,8 +1239,8 @@ function ytPlay(i){const v=ytList[i];if(!v)return;
   ytLoad(()=>{
     if(yt&&yt.loadVideoById){yt.loadVideoById(v.id);return}
     yt=new YT.Player("ytP",{width:"100%",height:"100%",videoId:v.id,
-      playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
-      events:{onReady:e=>{YTX.ct=()=>{try{return yt.getCurrentTime()||0}catch(x){return 0}};try{e.target.setVolume(Math.round(bgm.volume*100));e.target.playVideo()}catch(x){}},
+      playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1,fs:0,iv_load_policy:3},
+      events:{onReady:e=>{try{const f=e.target.getIframe();f.removeAttribute("allowfullscreen");f.removeAttribute("width");f.removeAttribute("height");f.setAttribute("allow","autoplay; encrypted-media; picture-in-picture")}catch(x){}YTX.ct=()=>{try{return yt.getCurrentTime()||0}catch(x){return 0}};try{e.target.setVolume(Math.round(bgm.volume*100));e.target.playVideo()}catch(x){}},
               onStateChange:ytState,onError:()=>ytNext()}})});
   clearInterval(ytTimer);ytTimer=setInterval(()=>{if(isOpen())seekUI()},500);
   musDraw();ytDraw()}
