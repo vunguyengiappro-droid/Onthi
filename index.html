@@ -714,30 +714,31 @@ try{R=new THREE.WebGLRenderer({canvas:cv,alpha:true,antialias:false,powerPrefere
 R.setClearColor(0,0);
 const coarse=matchMedia("(pointer:coarse)").matches,NF=coarse?3200:6500,NG=coarse?1800:4200,DIST=1400,Z0=-120,V2=THREE.Vector2;
 const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(40,1,10,6000);cam.position.z=DIST;
-const U={uTime:{value:0},uNdc:{value:new V2(9,9)},uPtr:{value:0},uAsp:{value:1},uTan:{value:.3},uDist:{value:DIST},uScale:{value:400},uLight:{value:0},uScroll:{value:0},uRot:{value:0},uBH:{value:0},uAud:{value:0},uTw:{value:0},uPar:{value:new V2()},uB:{value:[0,1,2].map(()=>new THREE.Vector4(0,0,-99,0))}};
-const COM=`uniform float uTime,uPtr,uAsp,uTan,uDist,uScale,uLight,uScroll,uSz,uAud;uniform vec2 uNdc,uPar;uniform vec4 uB[3];varying float vA;varying vec3 vC;
+const U={uTime:{value:0},uNdc:{value:new V2(9,9)},uPtr:{value:0},uAsp:{value:1},uTan:{value:.3},uDist:{value:DIST},uScale:{value:400},uLight:{value:0},uScroll:{value:0},uRot:{value:0},uBH:{value:0},uAud:{value:0},uTw:{value:0},uPar:{value:new V2()},uB:{value:[0,1,2,3,4].map(()=>new THREE.Vector4(0,0,-99,0))},uKick:{value:0},uBW:{value:1},uBd0:{value:new THREE.Vector4()},uBd1:{value:new THREE.Vector4()}};
+const COM=`uniform float uTime,uPtr,uAsp,uTan,uDist,uScale,uLight,uScroll,uSz,uAud,uKick,uBW;uniform vec2 uNdc,uPar;uniform vec4 uB[5],uBd0,uBd1;varying float vA;varying vec3 vC;
+float bnd(float u){float k=clamp(u,0.,.999)*8.;vec4 a=max(1.-abs(k-vec4(.5,1.5,2.5,3.5)),0.),b=max(1.-abs(k-vec4(4.5,5.5,6.5,7.5)),0.);return dot(a,uBd0)+dot(b,uBd1);}
 float disturb(inout vec3 p){float dp=uDist-p.z,k=dp/uDist;vec2 hf=vec2(uAsp,1.)*uTan*dp;vec2 d=p.xy-uNdc*hf;float L=length(d),Rr=200.*k;
 float f=exp(-(L*L)/(Rr*Rr))*uPtr;vec2 dir=d/max(L,1.);p.xy+=dir*f*130.*k+vec2(-dir.y,dir.x)*f*80.*k;p.z+=f*170.;
-for(int i=0;i<3;i++){float age=uTime-uB[i].z;if(uB[i].w>.5&&age>0.&&age<2.8){vec2 e=p.xy-uB[i].xy*hf;float El=length(e),r=age*640.*k,x=(El-r)/(95.*k),w=exp(-x*x)*exp(-age*1.4);p.xy+=e/max(El,1.)*w*150.*k;p.z+=w*180.;f=max(f,w);}}
+for(int i=0;i<5;i++){float sw=i>=3?uBW:1.;float age=uTime-uB[i].z;if(uB[i].w>.01&&age>0.&&age<2.8){vec2 e=p.xy-uB[i].xy*hf;float El=length(e),r=age*640.*k,x=(El-r)/(95.*k),w=exp(-x*x)*exp(-age*1.4)*uB[i].w*sw;p.xy+=e/max(El,1.)*w*150.*k;p.z+=w*180.;f=max(f,w);}}
 return f;}`;
 const VF=COM+`attribute vec4 sd;void main(){vec3 p=position;float ph=sd.x,sp=sd.y,am=sd.z;
 p.x+=sin(uTime*sp*.35+ph)*55.*am;p.z+=cos(uTime*sp*.28+ph)*45.*am;p.xy-=uPar*(p.z+500.)*.05;
-float par=.3+.7*smoothstep(-600.,500.,p.z);float cl=mod(p.y+uTime*13.*sp+uScroll*par*.55+900.,1800.)-900.;p.y=cl+uAud*am*70.*(.5+.5*sin(ph*5.));p.z+=uAud*am*90.;
-float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uSz*sd.w*(1.+f*1.7+uAud*.9)*(uScale/max(-mv.z,1.));
-float tw=.55+.45*sin(uTime*(.7+sp*1.6)+ph*3.1);vA=clamp(tw*(.5+f*1.5+uAud*.8)*(1.-smoothstep(.72,1.,abs(cl)/900.)),0.,1.);
-vC=mix(mix(vec3(.62,.68,1.),vec3(.86,.62,1.),fract(ph*.318)),vec3(1.,.95,.8),clamp(f*1.2+uAud*.5,0.,1.));gl_Position=projectionMatrix*mv;}`;
+float par=.3+.7*smoothstep(-600.,500.,p.z);float cl=mod(p.y+uTime*13.*sp+uScroll*par*.55+900.,1800.)-900.;p.y=cl+uAud*am*70.*(.5+.5*sin(ph*5.));p.z+=uAud*am*90.;float bu=clamp(abs(p.x)/(uAsp*uTan*(uDist-p.z))+(fract(ph*13.7)-.5)*.3,0.,1.),e=bnd(bu);p.y+=e*am*150.;p.z+=e*am*130.;p.xy*=1.+uKick*.05;
+float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uSz*sd.w*(1.+f*1.7+uAud*.9+e*1.8)*(uScale/max(-mv.z,1.));
+float tw=.55+.45*sin(uTime*(.7+sp*1.6)+ph*3.1);vA=clamp(tw*(.5+f*1.5+uAud*.8+e*1.1)*(1.-smoothstep(.72,1.,abs(cl)/900.)),0.,1.);
+vC=mix(mix(vec3(.62,.68,1.),vec3(.86,.62,1.),fract(ph*.318)),vec3(1.,.95,.8),clamp(f*1.2+uAud*.5+e*.7,0.,1.));gl_Position=projectionMatrix*mv;}`;
 const VG=COM+`attribute vec4 g;uniform vec3 uGC;uniform vec2 uTilt;uniform float uRot,uBH,uTw;void main(){float r=g.x,th=g.y+uRot*.75*(1.25-r*.7)+uTw;
-vec3 q=vec3(cos(th)*r,g.z*(1.-r)*.10+sin(th*3.+uTime*.7)*.01,sin(th)*r)*uGC.z*(1.+uAud*.16);
+vec3 q=vec3(cos(th)*r,g.z*(1.-r)*.10+sin(th*3.+uTime*.7)*.01,sin(th)*r)*uGC.z*(1.+uAud*.16+uKick*.1);
 float cx=cos(uTilt.x),sx=sin(uTilt.x);q=vec3(q.x,q.y*cx-q.z*sx,q.y*sx+q.z*cx);
 float cz=cos(uTilt.y),sz=sin(uTilt.y);q=vec3(q.x*cz-q.y*sz,q.x*sz+q.y*cz,q.z);
 vec3 p=vec3(uGC.xy,-120.)+q;p.xy-=uPar*(p.z+500.)*.03;float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);
-gl_PointSize=(.9+2.4*g.w*g.w)*(1.+f*1.4+uAud*.6)*uSz*(uScale/max(-mv.z,1.));float core=1.-r;
+gl_PointSize=(.9+2.4*g.w*g.w)*(1.+f*1.4+uAud*.6+uKick*.5)*uSz*(uScale/max(-mv.z,1.));float core=1.-r;
 vA=(.35+.65*core+f*.8)*(.55+.45*sin(uTime*1.3+g.w*40.));
 vC=mix(mix(vec3(.55,.5,1.),vec3(1.,.82,.55),core*core),vec3(.5,.95,1.),smoothstep(.85,1.,g.w)*.6);vC=mix(vC,mix(vec3(.82,.84,.9),vec3(1.),pow(core,3.))*.9,uBH);vA*=(1.+uBH*.5*cos(th+.4))*(1.-uBH*.3);gl_Position=projectionMatrix*mv;}`;
 const FS=`uniform float uLight,uOp;varying float vA;varying vec3 vC;void main(){float a=smoothstep(.5,0.,length(gl_PointCoord-.5));a*=a;
 vec3 c=mix(vC*(1.+a*.8),vC*vec3(.34,.30,.80),uLight);gl_FragColor=vec4(c,a*vA*uOp*mix(1.,.8,uLight));}`;
 const mk=(vs,u)=>new THREE.ShaderMaterial({uniforms:Object.assign({uOp:{value:.8}},U,u),vertexShader:vs,fragmentShader:FS,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending});
-const mf=mk(VF,{uSz:{value:9}}),mg=mk(VG,{uSz:{value:6.6},uGC:{value:new THREE.Vector3()},uTilt:{value:new V2(1,-.3)}});
+const mf=mk(VF,{uSz:{value:9}}),mg=mk(VG,{uBW:{value:0},uSz:{value:6.6},uGC:{value:new THREE.Vector3()},uTilt:{value:new V2(1,-.3)}});
 const fp=new Float32Array(NF*3),fs=new Float32Array(NF*4),fg=new THREE.BufferGeometry();
 for(let i=0;i<NF;i++)fs.set([Math.random()*6.283,.25+Math.random()*.9,.4+Math.random()*1.4,.7+1.05*Math.pow(Math.random(),2.2)],i*4);
 fg.setAttribute("position",new THREE.BufferAttribute(fp,3));fg.setAttribute("sd",new THREE.BufferAttribute(fs,4));
@@ -797,23 +798,61 @@ function feat(b,m,T,dt){
   kick=Math.max(0,kick-dt*3.6);
   const lvl=Math.min(1,Math.max(0,(b-.45)*1.8));
   return Math.min(1,Math.max(kick*.95,lvl*.75+Math.max(0,m-.35)*.6))}
+const NB=8,bd=new Float32Array(NB),bmx=new Float32Array(NB).fill(.25),BE=[1,3,5,9,15,27,49,91,200],BM={},BMp={};let bmFi=-1,bmCur=null,seenB=-9,bs=0;
+function setB(i,n,dt){bd[i]+=(n-bd[i])*(n>bd[i]?1-Math.pow(1e-6,dt):1-Math.pow(.02,dt))}
+function fakeB(a,T,dt){for(let i=0;i<NB;i++)setB(i,Math.min(1,a*(1.05-i*.09)*(.65+.35*Math.sin(T*(1.7+i*.9)+i*2.1))),dt)}
+function liveB(dt){for(let i=0;i<NB;i++){let s=0;const lo=BE[i],hi=BE[i+1];for(let j=lo;j<hi;j++)s+=ad2[j];const v=s/(hi-lo)/255;bmx[i]=Math.max(bmx[i]*Math.pow(.9,dt),v,.12);setB(i,Math.min(1,Math.pow(v/bmx[i],1.6)),dt)}}
+function beatWave(){const W=innerWidth,H=innerHeight,c=v=>Math.max(-1,Math.min(1,v));U.uB.value[3+(bs++&1)].set(c(gx/W*2-1),c(1-gy/H*2),U.uTime.value,.5)}
+/* Bản đồ nhịp: tải + giải mã mp3 ngoài luồng phát (không đụng vào thẻ audio, chạy được cả iOS), phân tích 8 dải tần + vị trí từng nhịp, rồi đọc theo bgm.currentTime. Chỉnh độ trễ loa/tai nghe bằng window.danceOffset (giây). */
+function fromMap(M,T,dt){const ct=Math.max(0,bgm.currentTime-(AC&&AC.outputLatency||0)+(window.danceOffset||0)),fi=Math.max(0,Math.min(M.n-1,Math.floor(ct*M.fps-.5)));
+ if(M!==bmCur||fi<bmFi||fi-bmFi>40){bmFi=fi;bmCur=M}
+ else{for(let k=bmFi+1;k<=fi;k++)if(M.bt[k]){kick=.5+M.bt[k]/510;twS+=.4;lastB=T}bmFi=fi}
+ kick=Math.max(0,kick-dt*3.6);const o=fi*NB;for(let i=0;i<NB;i++)setB(i,M.bd[o+i]/255,dt);
+ return Math.min(1,Math.max(kick*.95,bd[0]*.5+bd[1]*.35+bd[3]*.25))}
+function fft(re,im,n){for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+ for(let l=2;l<=n;l<<=1){const a=-6.283185307/l,wr=Math.cos(a),wi=Math.sin(a),h=l>>1;
+  for(let i=0;i<n;i+=l){let cr=1,ci=0;for(let k=0;k<h;k++){const u=i+k,v=u+h,xr=re[v]*cr-im[v]*ci,xi=re[v]*ci+im[v]*cr;re[v]=re[u]-xr;im[v]=im[u]-xi;re[u]+=xr;im[u]+=xi;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t}}}}
+async function mapTrack(u){
+ const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(!u||BM[u]||BMp[u]||!OC)return;BMp[u]=1;
+ try{
+  const r=await fetch(u,{mode:"cors"});if((+r.headers.get("content-length")||0)>30e6)throw 0;
+  const ab=await r.arrayBuffer();
+  const buf=await new Promise((ok,no)=>{const p=new OC(1,1,22050).decodeAudioData(ab,ok,no);if(p&&p.catch)p.catch(no)});
+  const c0=buf.getChannelData(0),c1=buf.numberOfChannels>1?buf.getChannelData(1):c0,sr=buf.sampleRate,N=512,n=Math.floor((c0.length-N)/N);if(n<20)throw 0;
+  const sc=43.07/(sr/N),E=BE.map(x=>Math.max(1,Math.min(N/2-1,Math.round(x*sc))));for(let i=1;i<E.length;i++)if(E[i]<=E[i-1])E[i]=E[i-1]+1;
+  const raw=new Float32Array(n*NB),re=new Float32Array(N),im=new Float32Array(N),win=new Float32Array(N);for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(6.283185*i/(N-1));
+  for(let t=0;t<n;t++){const o=t*N;for(let i=0;i<N;i++){re[i]=(c0[o+i]+c1[o+i])*.5*win[i];im[i]=0}fft(re,im,N);
+   for(let b=0;b<NB;b++){let s=0;const lo=E[b],hi=E[b+1];for(let j=lo;j<hi;j++)s+=Math.hypot(re[j],im[j]);raw[t*NB+b]=Math.log1p(s/(hi-lo)*30)}
+   if(t%300===299)await new Promise(q=>setTimeout(q,0))}
+  const out=new Uint8Array(n*NB),tmp=new Float32Array(n);
+  for(let b=0;b<NB;b++){for(let t=0;t<n;t++)tmp[t]=raw[t*NB+b];const so=tmp.slice().sort(),hi=so[Math.floor(n*.97)]||1,lo=so[Math.floor(n*.1)]||0;
+   for(let t=0;t<n;t++)out[t*NB+b]=Math.pow(Math.max(0,Math.min(1,(tmp[t]-lo)/Math.max(hi-lo,1e-4))),1.5)*255}
+  const en=new Float32Array(n),fl=new Float32Array(n),pre=new Float64Array(n+1),bt=new Uint8Array(n);let last=-99;
+  for(let t=0;t<n;t++)en[t]=(out[t*NB]+out[t*NB+1]*.7)/255;
+  for(let t=3;t<n;t++)fl[t]=Math.max(0,en[t]-(en[t-1]+en[t-2]+en[t-3])/3);
+  for(let t=0;t<n;t++)pre[t+1]=pre[t]+fl[t];
+  for(let t=3;t<n-1;t++){const a=Math.max(0,t-21),b=Math.min(n,t+22),lm=(pre[b]-pre[a])/(b-a);
+   if(fl[t]>lm*1.8+.05&&fl[t]>=fl[t-1]&&fl[t]>=fl[t+1]&&t-last>=9){bt[t]=Math.min(255,60+fl[t]*400|0);last=t}}
+  BM[u]={fps:sr/N,n,bd:out,bt};
+ }catch(e){BMp[u]=2}}
 function aud(T,dt){let a=0;
  try{
   const lec=typeof LEC!=="undefined"&&LEC&&!LEC.paused&&LEC.currentTime>0;
   const syn=typeof timer!=="undefined"&&timer&&AC&&mG&&soundOn;
   const mp3=typeof bgm!=="undefined"&&bgm&&!bgm.paused&&bgm.currentTime>0&&!bgmFail&&soundOn;
-  if(lec){kick=Math.max(0,kick-dt*3.6);a=Math.min(1,Math.max(0,.5*Math.abs(Math.sin(T*6.1+Math.sin(T*1.7)*2))+.2*Math.sin(T*2.3)+.12))}
+  if(lec){kick=Math.max(0,kick-dt*3.6);a=Math.min(1,Math.max(0,.5*Math.abs(Math.sin(T*6.1+Math.sin(T*1.7)*2))+.2*Math.sin(T*2.3)+.12));fakeB(a,T,dt)}
   else if(syn){if(!an){an=AC.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.6;mG.connect(an);ad=new Uint8Array(an.frequencyBinCount)}
-   an.getByteFrequencyData(ad);let q=0;for(let i=1;i<7;i++)q+=ad[i];a=feat(Math.min(1,q/6/255*1.6),0,T,dt)}
+   an.getByteFrequencyData(ad);let q=0;for(let i=1;i<7;i++)q+=ad[i];a=feat(Math.min(1,q/6/255*1.6),0,T,dt);fakeB(a,T,dt)}
   else if(mp3){
    const A=bgm.__corsLoaded?bgAn():null;
-   if(A){A.getByteFrequencyData(ad2);let b=0,m=0;for(let i=1;i<=5;i++)b+=ad2[i];for(let i=6;i<=40;i++)m+=ad2[i];a=feat(b/5/255,m/35/255,T,dt)}
-   else{const ph=(bgm.currentTime*104/60)%1;if(ph<wasPh){kick=1;twS+=.4}wasPh=ph;kick=Math.max(0,kick-dt*3.6);
-    const k=Math.exp(-ph*5.5),o=Math.exp(-((ph+.5)%1)*9)*.35,w=.75+.25*Math.sin(T*.9)+.1*Math.sin(T*3.1);a=Math.min(1,(k+o)*w)}}
-  else kick=Math.max(0,kick-dt*3.6);
+   if(A){A.getByteFrequencyData(ad2);let b=0,m=0;for(let i=1;i<=5;i++)b+=ad2[i];for(let i=6;i<=40;i++)m+=ad2[i];a=feat(b/5/255,m/35/255,T,dt);liveB(dt)}
+   else if(BM[bgm.currentSrc])a=fromMap(BM[bgm.currentSrc],T,dt);
+   else{mapTrack(bgm.currentSrc);const ph=(bgm.currentTime*104/60)%1;if(ph<wasPh){kick=1;twS+=.4;lastB=T}wasPh=ph;kick=Math.max(0,kick-dt*3.6);
+    const k=Math.exp(-ph*5.5),o=Math.exp(-((ph+.5)%1)*9)*.35,w=.75+.25*Math.sin(T*.9)+.1*Math.sin(T*3.1);a=Math.min(1,(k+o)*w);fakeB(a,T,dt)}}
+  else{kick=Math.max(0,kick-dt*3.6);fakeB(0,T,dt)}
  }catch(e){}
  aE+=(a-aE)*(a>aE?1-Math.pow(.0005,dt):1-Math.pow(.03,dt));U.uAud.value=aE;
- twV+=(twS-twV)*(1-Math.pow(.0006,dt));U.uTw.value=twV}
+ twV+=(twS-twV)*(1-Math.pow(.0006,dt));U.uTw.value=twV;U.uKick.value=kick;U.uBd0.value.set(bd[0],bd[1],bd[2],bd[3]);U.uBd1.value.set(bd[4],bd[5],bd[6],bd[7]);if(lastB!==seenB){seenB=lastB;beatWave()}}
 let T=0,last=performance.now(),wasL=null,lowed=false;
 function frame(now){requestAnimationFrame(frame);if(document.hidden){last=now;return}
  const dt=Math.min((now-last)/1000,.05);last=now;T+=dt;U.uTime.value=T;
