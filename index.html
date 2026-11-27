@@ -1075,7 +1075,7 @@ import("https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js")
 const HIDE = new Set(), MKEY = {};
 const hsh = u => { let h = 5381; for (let i = 0; i < u.length; i++) h = ((h << 5) + h + u.charCodeAt(i)) | 0; return "h" + (h >>> 0).toString(36); };
 function mergeIn(k, it, key) {
-  if (!Q[k] || !it || !it.u || !it.t || HIDE.has(it.u)) return false;
+  if (!Q[k] || !it || !it.u || !it.t) return false;
   if (Q[k].some(q => q.u === it.u)) return false;
   Q[k].push({ n: +it.n || Q[k].length + 1, t: String(it.t), u: String(it.u), key: key || null });
   return true;
@@ -1127,7 +1127,7 @@ const ready = (async () => {
     const snap = await get(ref(db, "music"));
     if (!snap.exists()) return;
     for (const [key, it] of Object.entries(snap.val())) {
-      if (!it || !it.u || HIDE.has(it.u)) continue;
+      if (!it || !it.u) continue;
       MKEY[it.u] = key;
       if (it.name) MUSIC_NAMES[it.u] = it.name;
       if (!MUSIC_URLS.includes(it.u)) MUSIC_URLS.push(it.u);
@@ -1141,7 +1141,8 @@ const isM = () => $("admTy").value === "m";
 const nextN = () => { const k = $("admK").value; $("admN").value = Q[k].reduce((m, q) => Math.max(m, q.n), 0) + 1; };
 const goodUrl = u => /^https?:\/\//.test(u);
 const errMsg = (what, e) => say("Không " + what + " được: " + (e.code || e.message) + ". Kiểm tra lại Rules.", "er");
-const unhide = async u => { if (HIDE.has(u)) { await remove(ref(db, "hidden/" + hsh(u))); HIDE.delete(u); } };
+/* "hidden" chỉ áp dụng cho bài có sẵn trong code, không áp dụng cho bài lưu trên DB */
+const unhide = async () => {};
 const hideBuiltin = async u => { await set(ref(db, "hidden/" + hsh(u)), { u }); HIDE.add(u); };
 const stopLecture = () => { LEC.pause(); cur = null; pl.hidden = true; document.body.classList.remove("hasPl"); syncUI(); };
 
