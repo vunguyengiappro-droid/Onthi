@@ -852,5 +852,53 @@ tb.onclick=e=>{const b=e.target.closest("button");if(b)go(b.dataset.f)};
 filter="home";setView();mv();
 })();
 </script>
+<script type="module">
+/* ===== FIREBASE ===== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDK8QVRpoO7JwQFHKhUHBxNtajbci7qszw",
+  authDomain: "onthi-df275.firebaseapp.com",
+  databaseURL: "https://onthi-df275-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "onthi-df275",
+  storageBucket: "onthi-df275.firebasestorage.app",
+  messagingSenderId: "860244074280",
+  appId: "1:860244074280:web:dfacb69479aed796bbfa1d",
+  measurementId: "G-MP7D49Y7VL"
+};
+
+const app = initializeApp(firebaseConfig);
+try { isSupported().then(ok => { if (ok) getAnalytics(app); }); } catch (e) {}
+const db = getDatabase(app);
+
+/* Đọc thêm bài nghe từ DB: /questions/<MÃ MÔN>/<id> = {n, t, u}
+   Mã môn: LHP, CN, VM, LL, TT, TR. Bài trong code vẫn giữ nguyên, bài trùng link (u) sẽ bỏ qua. */
+(async () => {
+  try {
+    const snap = await get(ref(db, "questions"));
+    if (!snap.exists()) return;
+    const data = snap.val();
+    let changed = false;
+    for (const k of Object.keys(Q)) {
+      const raw = data[k];
+      if (!raw) continue;
+      const items = (Array.isArray(raw) ? raw : Object.values(raw)).filter(x => x && x.u && x.t);
+      const have = new Set(Q[k].map(q => q.u));
+      for (const it of items) {
+        if (have.has(it.u)) continue;
+        Q[k].push({ n: +it.n || Q[k].length + 1, t: String(it.t), u: String(it.u) });
+        have.add(it.u); changed = true;
+      }
+      Q[k].sort((a, b) => a.n - b.n);
+    }
+    if (changed) {
+      homeInit();
+      if (filter !== "home") render();
+    }
+  } catch (e) { console.warn("Firebase: không đọc được dữ liệu, dùng kho bài có sẵn.", e); }
+})();
+</script>
 </body>
 </html>
