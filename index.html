@@ -978,7 +978,7 @@ box.innerHTML=`<div class="bx">
   <div class="row"><button class="gh" data-x>Đóng</button><button id="admIn">Đăng nhập</button></div>
  </div>
  <div id="admForm" hidden>
-  <label>Quản lý</label><select id="admTy"><option value="q">Bài nghe ôn thi</option><option value="m">Nhạc nền</option></select>
+  <label>Quản lý</label><select id="admTy"><option value="q">Bài nghe ôn thi</option><option value="m">Nhạc nền</option><option value="t">Bài trắc nghiệm (HTML)</option></select>
   <div id="admQF">
   <label>Môn</label><select id="admK"></select>
   <label>Số câu</label><input id="admN" type="number" min="1">
@@ -988,6 +988,10 @@ box.innerHTML=`<div class="bx">
   <div id="admMF" hidden>
   <label>Tên bài hát (không bắt buộc)</label><input id="admMN" type="text">
   <label>Link file mp3</label><input id="admMU" type="url" placeholder="https://files.catbox.moe/xxxx.mp3">
+  </div>
+  <div id="admTF" hidden>
+  <label>Tên bài trắc nghiệm (không bắt buộc)</label><input id="admTN" type="text" placeholder="Ví dụ: Kinh tế vi mô">
+  <label>File HTML trắc nghiệm</label><input id="admTFile" type="file" accept=".html,.htm,text/html">
   </div>
   <div class="row"><button class="gh" data-x>Đóng</button><button class="gh" id="admCx" hidden>Hủy sửa</button><button id="admGo">Đăng bài</button></div>
   <div class="dh" id="admMh"></div><div class="dl" id="admDl"></div>
@@ -1398,6 +1402,7 @@ function resetForm() {
 }
 const row = (label, i, on) => `<div class="di${on ? " on" : ""}"><span>${label}</span><button class="ed" data-a="e" data-i="${i}">Sửa</button><button data-a="d" data-i="${i}">Xóa</button></div>`;
 function drawMgr() {
+  if (isT()) { drawQz(); return; }
   if (isM()) {
     $("admMh").textContent = "Nhạc nền đang có (" + MUSIC_URLS.length + ")";
     $("admDl").innerHTML = MUSIC_URLS.map((u, i) => row(esc(MUSIC_NAMES[u] || "Bài nhạc " + (i + 1)), i, edit && edit.t === "m" && edit.u === u)).join("");
@@ -1408,7 +1413,7 @@ function drawMgr() {
   }
 }
 $("admTy").onchange = () => {
-  const m = isM(); $("admQF").hidden = m; $("admMF").hidden = !m;
+  const v = $("admTy").value, m = v === "m"; $("admQF").hidden = v !== "q"; $("admMF").hidden = !m; $("admTF").hidden = v !== "t";
   resetForm(); drawMgr(); say("");
 };
 $("admK").onchange = () => { if (!edit) nextN(); drawMgr(); };
@@ -1448,6 +1453,7 @@ async function doDelete(i, b) {
 $("admDl").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
   const i = +b.dataset.i;
+  if (isT()) { delQz(i, b); return; }
   if (b.dataset.a === "e") startEdit(i); else doDelete(i, b);
 };
 
@@ -1540,7 +1546,78 @@ async function saveEdit() {
   } catch (e) { errMsg("lưu", e); }
   $("admGo").disabled = false;
 }
-$("admGo").onclick = () => { if (edit) saveEdit(); else if (isM()) addMusic(); else addQ(); };
+/* ===== BÀI TRẮC NGHIỆM HTML: tải lên ở quản trị, làm bài ở nút "Trắc nghiệm" ===== */
+const isT = () => $("admTy").value === "t";
+let QZ = [];
+const qzCss = document.createElement("style");
+qzCss.textContent = `#qz{position:fixed;inset:0;z-index:100000;background:var(--bg);color:var(--tx);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#qz.on{display:flex}#qz .qh{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border-bottom:1px solid var(--bd)}
+#qz .qh b{font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#qz .qh button{flex:none;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:10px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer}
+#qzL{flex:1;overflow:auto;padding:14px;width:100%;max-width:720px;margin:0 auto}#qzL[hidden],#qzF[hidden]{display:none}
+#qzL .qi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;margin:0 0 10px;padding:14px;border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+#qzL .qi span{color:var(--mu);font-size:12px;flex:none}#qzL .qe{color:var(--mu)}#qzF{flex:1;width:100%;border:0;background:var(--bg)}`;
+document.head.appendChild(qzCss);
+const qzBox = document.createElement("div"); qzBox.id = "qz";
+qzBox.innerHTML = '<div class="qh"><b id="qzT">Bài trắc nghiệm</b><button id="qzX">Đóng</button></div><div id="qzL"></div><iframe id="qzF" hidden sandbox="allow-scripts allow-modals allow-same-origin"></iframe>';
+document.body.appendChild(qzBox);
+const qzBtn = document.createElement("button");
+qzBtn.id = "qzBtn"; qzBtn.style.setProperty("--c", "#38bdf8");
+qzBtn.innerHTML = '<svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg><span>Trắc nghiệm</span>';
+document.querySelector(".foot").appendChild(qzBtn);
+qzBtn.onclick = () => qzBox.classList.add("on");
+function qzDraw() {
+  $("qzL").innerHTML = QZ.length ? QZ.map((z, i) => `<button class="qi" data-i="${i}"><b>${esc(z.name)}</b><span>${z.kb} KB</span></button>`).join("")
+    : '<p class="qe">Chưa có bài trắc nghiệm nào. Quản trị: bấm Thêm bài, chọn "Bài trắc nghiệm (HTML)" để tải file lên.</p>';
+}
+function qzBack() { $("qzF").hidden = true; $("qzF").srcdoc = ""; $("qzL").hidden = false; $("qzT").textContent = "Bài trắc nghiệm"; $("qzX").textContent = "Đóng"; }
+$("qzX").onclick = () => { if (!$("qzF").hidden) qzBack(); else qzBox.classList.remove("on"); };
+$("qzL").onclick = async e => {
+  const b = e.target.closest(".qi"); if (!b) return;
+  const z = QZ[+b.dataset.i], msg = t => "<p style='font:16px sans-serif;padding:20px'>" + t + "</p>";
+  $("qzT").textContent = z.name; $("qzX").textContent = "← Danh sách"; $("qzL").hidden = true; $("qzF").hidden = false;
+  $("qzF").srcdoc = msg("Đang tải…");
+  try { const s = await get(ref(db, "quizhtml/" + z.key)); $("qzF").srcdoc = s.exists() ? s.val() : msg("Không tìm thấy nội dung bài."); }
+  catch (err) { $("qzF").srcdoc = msg("Không tải được: " + esc(err.code || err.message)); }
+};
+(async () => {
+  await ready;
+  try {
+    const s = await get(ref(db, "quizmeta"));
+    if (s.exists()) QZ = Object.entries(s.val()).filter(([k, v]) => v && v.name).map(([key, v]) => ({ key, ...v })).sort((a, b) => (a.t || 0) - (b.t || 0));
+  } catch (e) { console.warn("Firebase: không đọc được bài trắc nghiệm.", e); }
+  qzDraw();
+})();
+function drawQz() {
+  $("admMh").textContent = "Bài trắc nghiệm đang có (" + QZ.length + ")";
+  $("admDl").innerHTML = QZ.map((z, i) => `<div class="di"><span>${esc(z.name)} · ${z.kb} KB</span><button data-a="d" data-i="${i}">Xóa</button></div>`).join("");
+}
+async function addQz() {
+  const f = $("admTFile").files[0];
+  if (!f) { say("Chọn file .html trắc nghiệm trước.", "er"); return; }
+  if (f.size > 3e6) { say("File lớn hơn 3 MB, hãy rút gọn trước khi tải.", "er"); return; }
+  const name = $("admTN").value.trim() || f.name.replace(/\.html?$/i, "");
+  $("admGo").disabled = true; say("Đang đọc và đăng…");
+  try {
+    const html = await f.text();
+    if (!/<script|<body|<html/i.test(html)) throw { message: "File không giống một trang HTML" };
+    const r = push(ref(db, "quizmeta"));
+    await set(ref(db, "quizhtml/" + r.key), html);
+    const m = { name, kb: Math.round(html.length / 1024), t: Date.now() };
+    await set(r, m); QZ.push({ key: r.key, ...m });
+    $("admTN").value = ""; $("admTFile").value = ""; qzDraw(); drawQz();
+    say("Đã tải lên ✓ Mở ở nút Trắc nghiệm trên trang chủ.", "ok");
+  } catch (e) { errMsg("đăng", e); }
+  $("admGo").disabled = false;
+}
+async function delQz(i, b) {
+  if (!confirm("Xóa bài trắc nghiệm này? Không hoàn tác được.")) return;
+  const z = QZ[i]; b.disabled = true; say("Đang xóa…");
+  try {
+    await remove(ref(db, "quizmeta/" + z.key)); await remove(ref(db, "quizhtml/" + z.key));
+    QZ.splice(i, 1); qzDraw(); drawQz(); say("Đã xóa ✓", "ok");
+  } catch (e) { b.disabled = false; errMsg("xóa", e); }
+}
+$("admGo").onclick = () => { if (isT()) addQz(); else if (edit) saveEdit(); else if (isM()) addMusic(); else addQ(); };
 
 </script>
 </body>
