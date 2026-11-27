@@ -857,6 +857,7 @@ function aud(T,dt){let a=0;
   if(lec){kick=Math.max(0,kick-dt*3.6);a=Math.min(1,Math.max(0,.5*Math.abs(Math.sin(T*6.1+Math.sin(T*1.7)*2))+.2*Math.sin(T*2.3)+.12));fakeB(a,T,dt)}
   else if(syn){if(!an){an=AC.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.6;mG.connect(an);ad=new Uint8Array(an.frequencyBinCount)}
    an.getByteFrequencyData(ad);let q=0;for(let i=1;i<7;i++)q+=ad[i];a=feat(Math.min(1,q/6/255*1.6),0,T,dt);fakeB(a,T,dt)}
+  else if(window.YTX&&YTX.on&&YTX.pl){const ph=(((YTX.ct()-YTX.t0)*YTX.bpm/60)%1+1)%1;if(ph<wasPh){kick=1;twS+=.4;lastB=T}wasPh=ph;kick=Math.max(0,kick-dt*3.6);const k=Math.exp(-ph*5.5),o=Math.exp(-((ph+.5)%1)*9)*.35,w=.8+.2*Math.sin(T*.9);a=Math.min(1,(k+o)*w);fakeB(a,T,dt);mode="yt"}
   else if(mp3){
    const A=bgm.__corsLoaded?bgAn():null;
    if(A){A.getByteFrequencyData(ad2);let b=0,m=0;for(let i=1;i<=5;i++)b+=ad2[i];for(let i=6;i<=40;i++)m+=ad2[i];liveB(dt);a=beat2(T,dt)}
@@ -1065,30 +1066,31 @@ const SV={shuf:'<svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5
  play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
  pause:'<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>'};
 const mp=document.createElement("div");mp.id="mus";
-mp.innerHTML=`<div class="mL"><div class="mH"><span>Nhạc nền</span><span id="musCnt"></span></div><div id="musList"></div></div>
-<div class="mR"><div class="art" id="musArt">${SV.note}</div><div class="mt" id="musTitle"></div><div class="ma">Nghe ôn thi K71LKT-A</div>
+mp.innerHTML=`<div class="mL"><div class="mH"><span>Nhạc nền</span><span id="musCnt"></span></div><div class="ys"><input id="ytQ" type="search" placeholder="Tìm nhạc trên YouTube…" enterkeyhint="search" autocomplete="off"><button id="ytGo" type="button" aria-label="Tìm"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button></div><div id="ytRes"></div><div id="musList"></div></div>
+<div class="mR"><div class="ytb"><div id="ytP"></div></div><div class="art" id="musArt">${SV.note}</div><div class="mt" id="musTitle"></div><div class="ma">Nghe ôn thi K71LKT-A</div><button id="ytTap" class="ytt" type="button">Gõ nhịp cho bụi</button>
 <div class="ms"><span id="musCur">0:00</span><input type="range" id="musRange" min="0" max="1000" value="0" aria-label="Tua"><span id="musDur">0:00</span></div>
 <div class="bgl"><label><input type="checkbox" id="musBg"> Phát nền (tắt màn hình vẫn nghe)</label></div>
 <div class="mc"><button id="musShuf" aria-label="Ngẫu nhiên">${SV.shuf}</button><button id="musPrev" class="fl" aria-label="Bài trước">${SV.prev}</button><button id="musPlayB" class="big" aria-label="Phát/Dừng"></button><button id="musNx" class="fl" aria-label="Bài sau">${SV.next}</button><button id="musRep" aria-label="Lặp lại">${SV.rep}</button></div></div>`;
 document.body.appendChild(mp);
 const nm=i=>MUSIC_NAMES[MUSIC_URLS[i]]||("Bài nhạc "+(i+1));
 const grad=i=>{const h=(i*67+250)%360;return`linear-gradient(135deg,hsl(${h} 70% 62%),hsl(${(h+45)%360} 70% 46%))`};
-const playingNow=()=>started&&soundOn&&!bgm.paused;
+window.YTX={on:false,pl:false,title:"",bpm:104,t0:0,ct:()=>0};
+const playingNow=()=>YTX.on?YTX.pl:started&&soundOn&&!bgm.paused;
 const isOpen=()=>mp.classList.contains("on");
 function drawList(){
   $("musCnt").textContent=(bi+1)+"/"+MUSIC_URLS.length;
-  $("musList").innerHTML=MUSIC_URLS.map((u,i)=>{const on=i===bi&&started&&soundOn;
+  $("musList").innerHTML=MUSIC_URLS.map((u,i)=>{const on=i===bi&&started&&soundOn&&!YTX.on;
     return`<button class="tk${on?" on":""}" data-i="${i}"><em style="background:${grad(i)}"></em><span>${esc(nm(i))}</span>${on?`<i class="eq${playingNow()?"":" ps"}"><b></b><b></b><b></b></i>`:""}</button>`}).join("");
   shownBi=bi;
 }
 function drawHead(){
-  $("musTitle").textContent=nm(bi);$("musArt").style.background=grad(bi);
+  $("musTitle").textContent=YTX.on?YTX.title:nm(bi);$("musArt").style.background=grad(bi);
   $("musPlayB").innerHTML=playingNow()?SV.pause:SV.play;
   $("musShuf").classList.toggle("on",musShuffle);
   $("musRep").classList.toggle("on",musOne);$("musRep").classList.toggle("one",musOne);
   seekUI();
 }
-function seekUI(){const d=bgm.duration,t=bgm.currentTime;
+function seekUI(){const Y=YTX.on&&yt&&yt.getDuration,d=Y?yt.getDuration():bgm.duration,t=Y?yt.getCurrentTime():bgm.currentTime;
   $("musCur").textContent=mm(t);$("musDur").textContent=isFinite(d)?mm(d):"0:00";
   if(!musSeek&&isFinite(d)&&d>0)$("musRange").value=Math.round(t/d*1000)}
 function musDraw(){drawHead();drawList()}
@@ -1136,6 +1138,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")mp.classList.remove(
 mp.onclick=e=>{
   const t=e.target.closest(".tk");if(t){musPlay(+t.dataset.i);return}
   const b=e.target.closest("button");if(!b)return;
+  if(YTX.on&&/^mus(PlayB|Nx|Prev)$/.test(b.id)){ytCtl(b.id);return}
   if(b.id==="musPlayB"){
     if(playingNow()){sndToggle&&sndToggle.call(sndB,e);setTimeout(musDraw,150);musDraw()}
     else musPlay(bi);
@@ -1144,10 +1147,107 @@ mp.onclick=e=>{
   else if(b.id==="musShuf"){musShuffle=!musShuffle;try{localStorage.setItem("dd_shuf",musShuffle?"1":"0")}catch(e){}drawHead()}
   else if(b.id==="musRep"){musOne=!musOne;bgm.loop=musOne;drawHead()}
 };
-$("musRange").oninput=()=>{musSeek=true;const d=bgm.duration;if(isFinite(d))$("musCur").textContent=mm($("musRange").value/1000*d)};
-$("musRange").onchange=()=>{const d=bgm.duration;if(isFinite(d))bgm.currentTime=$("musRange").value/1000*d;musSeek=false};
+$("musRange").oninput=()=>{musSeek=true;const d=YTX.on&&yt?yt.getDuration():bgm.duration;if(isFinite(d))$("musCur").textContent=mm($("musRange").value/1000*d)};
+$("musRange").onchange=()=>{const d=YTX.on&&yt?yt.getDuration():bgm.duration;if(isFinite(d)){const v=$("musRange").value/1000*d;if(YTX.on&&yt)yt.seekTo(v,true);else bgm.currentTime=v}musSeek=false};
 bgm.addEventListener("timeupdate",()=>{if(isOpen())seekUI()});
 ["play","pause","playing","loadedmetadata","ended"].forEach(ev=>bgm.addEventListener(ev,()=>{if(isOpen())musDraw()}));
+/* ===== TÌM & PHÁT NHẠC YOUTUBE (YouTube Data API + trình phát nhúng chính thức) ===== */
+const YT_KEY="AIzaSyCSb5-s-NqVyQYPbEKM2gvpcR9KPwwpjME";
+var yt=null,ytList=[],ytIdx=-1,ytTimer=0,ytMsg="",ytTaps=[];
+css.textContent+=`
+#mus .ys{display:flex;gap:6px;padding:0 6px 8px}
+#mus .ys input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:7px 10px;outline:0}
+#mus .ys input:focus{border-color:var(--g1)}
+#mus .ys button{flex:none;width:34px;height:auto;border-radius:10px;background:linear-gradient(135deg,var(--g1),var(--g2));padding:0;display:grid;place-items:center}
+#mus .ys svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round}
+#ytRes{display:none}
+#mus.ysr #ytRes{display:block;border-bottom:1px solid var(--bd);margin-bottom:6px;padding-bottom:6px}
+#mus.ysr .mL{max-height:min(330px,44vh)!important}
+#mus .yh{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--mu);padding:2px 8px 6px}
+#mus .yh button{font-size:11px;padding:2px 9px;border-radius:8px;background:var(--bg);color:var(--mu)}
+#mus .yk{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;font-size:13px;color:var(--tx);background:none;border:0;border-radius:12px;padding:6px 8px;cursor:pointer}
+#mus .yk:hover{background:var(--bg)}
+#mus .yk.on{color:var(--g1)}
+#mus .yk img{flex:none;width:44px;height:44px;border-radius:9px;object-fit:cover;background:var(--bg)}
+#mus .yi{flex:1;min-width:0}
+#mus .yi b{display:block;font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mus .yi i{display:block;font-style:normal;font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mus .ytb{display:none;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 14px 30px -10px rgba(0,0,0,.45)}
+#mus.yt .ytb{display:block}#mus.yt .art{display:none}
+#mus .ytb iframe{width:100%;height:100%;border:0;display:block}
+#mus .ytt{display:none;margin-top:8px;font-size:11.5px;padding:5px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--bd);color:var(--tx)}
+#mus.yt .ytt{display:block}
+`;
+const dec=s=>{const d=document.createElement("textarea");d.innerHTML=s;return d.value};
+function ytDraw(){const R=$("ytRes");
+  if(!ytList.length&&!ytMsg){mp.classList.remove("ysr");R.innerHTML="";return}
+  mp.classList.add("ysr");
+  R.innerHTML=`<div class="yh"><span>${esc(ytMsg||("YouTube · "+ytList.length+" kết quả"))}</span><button data-x="1" type="button">Đóng</button></div>`
+   +ytList.map((v,i)=>`<button class="yk${YTX.on&&i===ytIdx?" on":""}" data-y="${i}" type="button"><img src="${esc(v.th)}" alt=""><div class="yi"><b>${esc(v.t)}</b><i>${esc(v.c)}</i></div>${YTX.on&&i===ytIdx?`<i class="eq${YTX.pl?"":" ps"}"><b></b><b></b><b></b></i>`:""}</button>`).join("")}
+async function ytSearch(q){
+  const u="https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&videoCategoryId=10&maxResults=15&q="+encodeURIComponent(q)+"&key="+YT_KEY;
+  const r=await fetch(u),j=await r.json();
+  if(!r.ok){const m=(j.error&&j.error.message)||("HTTP "+r.status);throw new Error(/quota/i.test(m)?"Hết lượt tìm YouTube hôm nay":m)}
+  return(j.items||[]).filter(x=>x.id&&x.id.videoId).map(x=>({id:x.id.videoId,t:dec(x.snippet.title),c:dec(x.snippet.channelTitle),th:(x.snippet.thumbnails.default||{}).url||""}))}
+async function ytGo(){
+  const q=$("ytQ").value.trim();if(!q)return;
+  ytMsg="Đang tìm…";ytList=[];ytDraw();
+  try{
+    const m=q.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);
+    if(m){const id=m[1];let t="Video YouTube",c="";
+      try{const o=await(await fetch("https://www.youtube.com/oembed?format=json&url="+encodeURIComponent("https://www.youtube.com/watch?v="+id))).json();t=o.title;c=o.author_name}catch(e){}
+      ytList=[{id,t,c,th:"https://i.ytimg.com/vi/"+id+"/default.jpg"}];ytMsg="";ytDraw();ytPlay(0);return}
+    ytList=await ytSearch(q);ytMsg=ytList.length?"":"Không có kết quả";
+  }catch(e){ytList=[];ytMsg="Lỗi: "+String(e.message||e).slice(0,120)}
+  ytDraw()}
+function ytLoad(cb){
+  if(window.YT&&YT.Player){cb();return}
+  (window.__ytQ=window.__ytQ||[]).push(cb);
+  if(window.__ytS)return;window.__ytS=1;
+  const prev=window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady=()=>{try{prev&&prev()}catch(e){}(window.__ytQ||[]).splice(0).forEach(f=>f())};
+  const s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s)}
+function ytState(e){const s=e.data;YTX.pl=(s===1||s===3);
+  if(s===0)ytNext();
+  if(isOpen())musDraw();ytDraw()}
+function ytNext(){if(ytIdx+1<ytList.length)ytPlay(ytIdx+1);else{ytStop();musPlay(nextIdx())}}
+function ytPlay(i){const v=ytList[i];if(!v)return;
+  ytIdx=i;YTX.title=v.t;YTX.on=true;YTX.pl=false;started=true;
+  try{bgm.pause()}catch(e){}
+  if(!soundOn){soundOn=true;try{localStorage.setItem("dd_sound","1")}catch(e){}applySound()}
+  mp.classList.add("yt");
+  ytLoad(()=>{
+    if(yt&&yt.loadVideoById){yt.loadVideoById(v.id);return}
+    yt=new YT.Player("ytP",{width:"100%",height:"100%",videoId:v.id,
+      playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
+      events:{onReady:e=>{YTX.ct=()=>{try{return yt.getCurrentTime()||0}catch(x){return 0}};try{e.target.setVolume(Math.round(bgm.volume*100));e.target.playVideo()}catch(x){}},
+              onStateChange:ytState,onError:()=>ytNext()}})});
+  clearInterval(ytTimer);ytTimer=setInterval(()=>{if(isOpen())seekUI()},500);
+  musDraw();ytDraw()}
+function ytStop(){if(!YTX.on)return;
+  YTX.on=false;YTX.pl=false;clearInterval(ytTimer);
+  try{yt.pauseVideo()}catch(e){}
+  mp.classList.remove("yt");ytDraw()}
+function ytCtl(id){
+  if(id==="musPlayB"){try{YTX.pl?yt.pauseVideo():yt.playVideo()}catch(e){}}
+  else if(id==="musNx"){ytNext()}
+  else if(id==="musPrev"){let t=0;try{t=yt.getCurrentTime()}catch(e){}if(t>3||ytIdx<=0){try{yt.seekTo(0,true)}catch(e){}}else ytPlay(ytIdx-1)}}
+/* chọn bài nhạc nền thường thì dừng YouTube; nhạc YouTube thì chặn app tự bật mp3 khi quay lại tab */
+const _mpY=musPlay;musPlay=function(n){ytStop();_mpY(n)};
+const _smY=startMusic;startMusic=function(){if(YTX.on)return;_smY()};
+$("ytGo").onclick=e=>{e.stopPropagation();ytGo()};
+$("ytQ").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();ytGo()}};
+$("ytRes").addEventListener("click",e=>{e.stopPropagation();
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.x){mp.classList.remove("ysr");return}
+  if(b.dataset.y!=null)ytPlay(+b.dataset.y)});
+/* nhạc YouTube không cho đọc âm thanh nên bụi không nghe được nhịp thật: gõ theo nhịp vài lần để bụi nhảy theo */
+$("ytTap").onclick=e=>{e.stopPropagation();const n=performance.now();
+  while(ytTaps.length&&n-ytTaps[0]>3000)ytTaps.shift();ytTaps.push(n);
+  if(ytTaps.length>=2){const g=(ytTaps[ytTaps.length-1]-ytTaps[0])/(ytTaps.length-1)/1000;let b=60/g;while(b<70)b*=2;while(b>190)b/=2;YTX.bpm=b;
+    $("ytTap").textContent="Gõ nhịp · "+Math.round(b)+" BPM"}
+  YTX.t0=YTX.ct()};
+
 
 /* ===== PHÁT NỀN: nghe tiếp khi tắt màn hình / chuyển app, có nút điều khiển ở màn hình khóa ===== */
 window.bgPlay=true;try{window.bgPlay=localStorage.getItem("dd_bg")!=="0"}catch(e){}
