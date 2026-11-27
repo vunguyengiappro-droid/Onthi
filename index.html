@@ -1006,6 +1006,21 @@ function seekUI(){const d=bgm.duration,t=bgm.currentTime;
   $("musCur").textContent=mm(t);$("musDur").textContent=isFinite(d)?mm(d):"0:00";
   if(!musSeek&&isFinite(d)&&d>0)$("musRange").value=Math.round(t/d*1000)}
 function musDraw(){drawHead();drawList()}
+/* Lúc mở web: chờ Firebase tải xong danh sách (bài đã xóa + bài mới) rồi mới chọn ngẫu nhiên và phát */
+window.__musReady=false;window.__musPending=false;
+const _startMusic=startMusic;
+startMusic=function(){
+  if(!window.__musReady){
+    if(!window.__musPending){window.__musPending=true;
+      setTimeout(()=>{if(!window.__musReady)musReady()},3000)}  /* quá 3 giây vẫn chưa tải được thì phát luôn bằng danh sách có sẵn */
+    return}
+  _startMusic()};
+window.musReseed=function(){
+  if(started||!MUSIC_URLS.length)return;const L=MUSIC_URLS.length;
+  bi=(musShuffle&&L>1)?Math.floor(Math.random()*L):0;bgm.src=MUSIC_URLS[bi]};
+window.musReady=function(){
+  window.__musReady=true;musReseed();
+  if(window.__musPending){window.__musPending=false;_startMusic()}};
 window.musDrawPub=()=>{if(isOpen())musDraw()};
 window.musPlayPub=n=>musPlay(n);
 /* gọi sau khi xóa 1 bài nhạc (idx = vị trí bài vừa xóa) */
@@ -1125,14 +1140,14 @@ const ready = (async () => {
   await ready;
   try {
     const snap = await get(ref(db, "music"));
-    if (!snap.exists()) return;
-    for (const [key, it] of Object.entries(snap.val())) {
+    if (snap.exists()) for (const [key, it] of Object.entries(snap.val())) {
       if (!it || !it.u) continue;
       MKEY[it.u] = key;
       if (it.name) MUSIC_NAMES[it.u] = it.name;
       if (!MUSIC_URLS.includes(it.u)) MUSIC_URLS.push(it.u);
     }
   } catch (e) { console.warn("Firebase: không đọc được nhạc nền.", e); }
+  musReady();
 })();
 
 const $ = id => document.getElementById(id), say = window.admSay;
