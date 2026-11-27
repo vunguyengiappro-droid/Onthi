@@ -491,7 +491,7 @@ function duck(on){try{
   if(on){
     if(typeof bgm!=="undefined"&&bgm&&!bgm.paused){bgmWas=true;bgm.pause()}
     if(typeof timer!=="undefined"&&timer){bgmWas=true;clearInterval(timer);timer=null}
-  }else setTimeout(()=>{if(bgmWas&&LEC.paused&&soundOn&&started&&!document.hidden){bgmWas=false;startMusic()}},400);
+  }else setTimeout(()=>{if(bgmWas&&LEC.paused&&soundOn&&started&&(!document.hidden||window.bgPlay!==false)){bgmWas=false;startMusic()}},400);
 }catch(e){}}
 function upd(){const d=LEC.duration,t=LEC.currentTime;
   if("mediaSession" in navigator&&navigator.mediaSession.setPositionState&&isFinite(d)&&d>0){try{navigator.mediaSession.setPositionState({duration:d,playbackRate:LEC.playbackRate||1,position:Math.min(t,d)})}catch(e){}}plCur.textContent=mm(t);plDur.textContent=mm(d);
@@ -642,7 +642,7 @@ function synthStart(){if(timer||!AC)return;nextT=AC.currentTime+.1;timer=setInte
 function bgmNext(){if(++fails<MUSIC_URLS.length*2){pick();if(soundOn&&started)bgm.play().catch(()=>{})}else{bgmFail=true;if(soundOn&&started)synthStart()}}
 bgm.addEventListener("error",bgmNext);
 function startMusic(){started=true;if(typeof LEC!=="undefined"&&LEC&&!LEC.paused)return;if(bgmFail){synthStart();return}bgm.play().catch(()=>{})}
-document.addEventListener("visibilitychange",()=>{if(bgm){document.hidden?bgm.pause():(soundOn&&!document.getElementById("intro")&&startMusic())}if(!AC)return;document.hidden?AC.suspend():AC.resume()});
+document.addEventListener("visibilitychange",()=>{const bg=window.bgPlay!==false;if(document.hidden&&bg)return;if(bgm){document.hidden?bgm.pause():(soundOn&&!document.getElementById("intro")&&startMusic())}if(!AC)return;document.hidden?AC.suspend():AC.resume()});
 document.addEventListener("click",e=>{if(e.target.closest("button")&&e.target.id!=="snd")sfx("tap")},true);
 snd.onclick=()=>{initAudio();soundOn=!soundOn;try{localStorage.setItem("dd_sound",soundOn?"1":"0")}catch(e){}applySound();if(soundOn){AC.resume();startMusic();sfx("tick")}else if(bgm)bgm.pause()};
 /* ===== INTRO ===== */
@@ -951,6 +951,7 @@ css.textContent+=`
 #mus .mc .fl svg{fill:currentColor;stroke:none}
 #mus .mc .big{width:54px;height:54px;color:#fff;background:linear-gradient(135deg,var(--g1),var(--g2));box-shadow:0 8px 18px -6px rgba(124,131,255,.8)}
 #mus .mc .big svg{width:26px;height:26px;fill:#fff;stroke:none}
+#mus .bgl{width:100%;margin-top:8px;font-size:11px;color:var(--mu)}#mus .bgl label{display:flex;align-items:center;gap:6px;cursor:pointer}#mus .bgl input{accent-color:var(--g1)}
 #mus .mc .one::after{content:"1";position:absolute;font-size:9px;font-weight:700;right:7px;top:7px}
 @media (max-width:719px){#mus{grid-template-columns:1fr;width:min(340px,calc(100vw - 20px));overflow:auto}#mus .mR{order:1}#mus .mL{order:2;max-height:26vh}}`;
 /* thu nhỏ thành khung góc */
@@ -983,6 +984,7 @@ const mp=document.createElement("div");mp.id="mus";
 mp.innerHTML=`<div class="mL"><div class="mH"><span>Nhạc nền</span><span id="musCnt"></span></div><div id="musList"></div></div>
 <div class="mR"><div class="art" id="musArt">${SV.note}</div><div class="mt" id="musTitle"></div><div class="ma">Nghe ôn thi K71LKT-A</div>
 <div class="ms"><span id="musCur">0:00</span><input type="range" id="musRange" min="0" max="1000" value="0" aria-label="Tua"><span id="musDur">0:00</span></div>
+<div class="bgl"><label><input type="checkbox" id="musBg"> Phát nền (tắt màn hình vẫn nghe)</label></div>
 <div class="mc"><button id="musShuf" aria-label="Ngẫu nhiên">${SV.shuf}</button><button id="musPrev" class="fl" aria-label="Bài trước">${SV.prev}</button><button id="musPlayB" class="big" aria-label="Phát/Dừng"></button><button id="musNx" class="fl" aria-label="Bài sau">${SV.next}</button><button id="musRep" aria-label="Lặp lại">${SV.rep}</button></div></div>`;
 document.body.appendChild(mp);
 const nm=i=>MUSIC_NAMES[MUSIC_URLS[i]]||("Bài nhạc "+(i+1));
@@ -1062,6 +1064,29 @@ $("musRange").oninput=()=>{musSeek=true;const d=bgm.duration;if(isFinite(d))$("m
 $("musRange").onchange=()=>{const d=bgm.duration;if(isFinite(d))bgm.currentTime=$("musRange").value/1000*d;musSeek=false};
 bgm.addEventListener("timeupdate",()=>{if(isOpen())seekUI()});
 ["play","pause","playing","loadedmetadata","ended"].forEach(ev=>bgm.addEventListener(ev,()=>{if(isOpen())musDraw()}));
+
+/* ===== PHÁT NỀN: nghe tiếp khi tắt màn hình / chuyển app, có nút điều khiển ở màn hình khóa ===== */
+window.bgPlay=true;try{window.bgPlay=localStorage.getItem("dd_bg")!=="0"}catch(e){}
+$("musBg").checked=window.bgPlay;
+$("musBg").onchange=()=>{window.bgPlay=$("musBg").checked;try{localStorage.setItem("dd_bg",window.bgPlay?"1":"0")}catch(e){}
+  if(!window.bgPlay&&document.hidden)try{bgm.pause()}catch(e){}};
+const lecOn=()=>typeof LEC!=="undefined"&&LEC&&!LEC.paused;
+function bgSession(){
+  if(!("mediaSession" in navigator)||typeof MediaMetadata==="undefined"||!window.bgPlay||lecOn())return;
+  try{navigator.mediaSession.metadata=new MediaMetadata({title:nm(bi),artist:"Nhạc nền",album:"Nghe ôn thi K71LKT-A",artwork:(typeof artwork==="function"?artwork():[])});
+    navigator.mediaSession.playbackState=bgm.paused?"paused":"playing"}catch(e){}
+  const h=(a,f)=>{try{navigator.mediaSession.setActionHandler(a,f)}catch(e){}};
+  h("play",()=>musPlay(bi));
+  h("pause",()=>{if(soundOn)sndToggle&&sndToggle.call(sndB)});
+  h("nexttrack",()=>musPlay(nextIdx()));
+  h("previoustrack",()=>musPlay((bi-1+MUSIC_URLS.length)%MUSIC_URLS.length));
+  h("seekto",null);h("seekbackward",null);h("seekforward",null);
+}
+["playing","pause","loadedmetadata"].forEach(ev=>bgm.addEventListener(ev,bgSession));
+/* hệ thống tự dừng nhạc khi màn hình khóa (không phải do bạn bấm dừng) thì tự phát tiếp */
+bgm.addEventListener("pause",()=>{
+  if(!window.bgPlay||!document.hidden||!soundOn||!started||bgm.ended)return;
+  setTimeout(()=>{if(window.bgPlay&&document.hidden&&soundOn&&bgm.paused&&!lecOn()){const p=bgm.play();if(p&&p.catch)p.catch(()=>{})}},300)});
 })();
 </script>
 <script type="module">
