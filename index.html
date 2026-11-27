@@ -869,7 +869,13 @@ css.textContent=`
 #adm .row button.gh{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
 #adm .row button:disabled{opacity:.6}
 #adm .msg{margin-top:10px;font-size:13px;min-height:18px}
-#adm .msg.ok{color:var(--ok)}#adm .msg.er{color:var(--ex)}`;
+#adm .msg.ok{color:var(--ok)}#adm .msg.er{color:var(--ex)}
+#adm .dl{max-height:48vh;overflow:auto;margin-top:4px}
+#adm .dh{font-size:12px;color:var(--mu);margin:12px 0 2px}
+#adm .di{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--bd);border-radius:10px;margin-top:6px;background:var(--bg);font-size:13px}
+#adm .di span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#adm .di button{flex:none;border:0;border-radius:8px;padding:6px 10px;background:var(--exbg);color:var(--ex);font:inherit;font-weight:600;cursor:pointer}
+#adm .di button:disabled{opacity:.5}`;
 document.head.appendChild(css);
 const foot=document.querySelector(".foot");
 const openBtn=document.createElement("button");
@@ -885,7 +891,7 @@ box.innerHTML=`<div class="bx">
   <div class="row"><button class="gh" data-x>Đóng</button><button id="admIn">Đăng nhập</button></div>
  </div>
  <div id="admForm" hidden>
-  <label>Thêm gì?</label><select id="admTy"><option value="q">Bài nghe ôn thi</option><option value="m">Nhạc nền</option></select>
+  <label>Thêm gì?</label><select id="admTy"><option value="q">Bài nghe ôn thi</option><option value="m">Nhạc nền</option><option value="d">Xóa bài / nhạc</option></select>
   <div id="admQF">
   <label>Môn</label><select id="admK"></select>
   <label>Số câu</label><input id="admN" type="number" min="1">
@@ -896,6 +902,7 @@ box.innerHTML=`<div class="bx">
   <label>Tên bài hát (không bắt buộc)</label><input id="admMN" type="text">
   <label>Link file mp3</label><input id="admMU" type="url" placeholder="https://files.catbox.moe/xxxx.mp3">
   </div>
+  <div id="admDel" hidden><div class="dl" id="admDl"></div></div>
   <div class="row"><button class="gh" data-x>Đóng</button><button id="admGo">Đăng bài</button></div>
   <div class="row"><button class="gh" id="admOut">Đăng xuất</button></div>
  </div>
@@ -997,6 +1004,13 @@ function seekUI(){const d=bgm.duration,t=bgm.currentTime;
   $("musCur").textContent=mm(t);$("musDur").textContent=isFinite(d)?mm(d):"0:00";
   if(!musSeek&&isFinite(d)&&d>0)$("musRange").value=Math.round(t/d*1000)}
 function musDraw(){drawHead();drawList()}
+/* gọi sau khi xóa 1 bài nhạc (idx = vị trí bài vừa xóa) */
+window.musFix=function(idx){const L=MUSIC_URLS.length;
+  if(!L){try{bgm.pause();bgm.removeAttribute("src")}catch(e){}bi=0;if(isOpen())musDraw();return}
+  if(idx<bi)bi--;
+  else if(idx===bi){if(bi>=L)bi=0;
+    if(started&&soundOn&&!bgm.paused)musPlay(bi);else bgm.src=MUSIC_URLS[bi]}
+  if(isOpen())musDraw()};
 /* chọn bài kế: ngẫu nhiên hoặc lần lượt (ghi đè hàm pick của app để nhạc tự chuyển theo chế độ này) */
 pick=function(){const L=MUSIC_URLS.length;let n;
   if(musShuffle&&L>1){do{n=Math.floor(Math.random()*L)}while(n===bi)}else n=(bi+1)%L;
@@ -1034,7 +1048,7 @@ bgm.addEventListener("timeupdate",()=>{if(isOpen())seekUI()});
 <script type="module">
 /* ===== FIREBASE ===== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getDatabase, ref, get, push } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+import { getDatabase, ref, get, push, set, remove } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -1054,10 +1068,12 @@ import("https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js")
   .then(m => m.isSupported().then(ok => { if (ok) m.getAnalytics(app); }))
   .catch(() => {});
 
-function mergeIn(k, it) {
-  if (!Q[k] || !it || !it.u || !it.t) return false;
+const HIDE = new Set(), MKEY = {};
+const hsh = u => { let h = 5381; for (let i = 0; i < u.length; i++) h = ((h << 5) + h + u.charCodeAt(i)) | 0; return "h" + (h >>> 0).toString(36); };
+function mergeIn(k, it, key) {
+  if (!Q[k] || !it || !it.u || !it.t || HIDE.has(it.u)) return false;
   if (Q[k].some(q => q.u === it.u)) return false;
-  Q[k].push({ n: +it.n || Q[k].length + 1, t: String(it.t), u: String(it.u) });
+  Q[k].push({ n: +it.n || Q[k].length + 1, t: String(it.t), u: String(it.u), key: key || null });
   return true;
 }
 function sortKeep(k) {
@@ -1067,32 +1083,96 @@ function sortKeep(k) {
 }
 function refresh() { homeInit(); if (filter !== "home") render(); }
 
+/* 1) đọc danh sách bài đã xóa (ẩn) rồi gỡ bài có sẵn trong code */
+const ready = (async () => {
+  try {
+    const snap = await get(ref(db, "hidden"));
+    if (snap.exists()) for (const v of Object.values(snap.val())) if (v && v.u) HIDE.add(v.u);
+    if (HIDE.size) {
+      for (const k of Object.keys(Q)) Q[k] = Q[k].filter(q => !HIDE.has(q.u));
+      for (let i = MUSIC_URLS.length - 1; i >= 0; i--) if (HIDE.has(MUSIC_URLS[i])) MUSIC_URLS.splice(i, 1);
+      if (bi >= MUSIC_URLS.length) bi = 0;
+      const cs = bgm.getAttribute("src");
+      if (!started && cs && !MUSIC_URLS.includes(cs) && MUSIC_URLS.length) bgm.src = MUSIC_URLS[bi];
+      refresh();
+    }
+  } catch (e) { console.warn("Firebase: không đọc được danh sách đã xóa.", e); }
+})();
+
+/* 2) đọc bài nghe từ DB */
 (async () => {
+  await ready;
   try {
     const snap = await get(ref(db, "questions"));
     if (!snap.exists()) return;
     const data = snap.val(); let changed = false;
     for (const k of Object.keys(Q)) {
       const raw = data[k]; if (!raw) continue;
-      for (const it of (Array.isArray(raw) ? raw : Object.values(raw))) if (mergeIn(k, it)) changed = true;
+      const ents = Array.isArray(raw) ? raw.map((v, i) => [String(i), v]) : Object.entries(raw);
+      for (const [key, it] of ents) if (mergeIn(k, it, key)) changed = true;
       sortKeep(k);
     }
     if (changed) refresh();
   } catch (e) { console.warn("Firebase: không đọc được dữ liệu, dùng kho bài có sẵn.", e); }
 })();
 
+/* 3) đọc nhạc nền từ DB */
 (async () => {
+  await ready;
   try {
     const snap = await get(ref(db, "music"));
     if (!snap.exists()) return;
-    for (const it of Object.values(snap.val())) {
-      if (it && it.u) { if (it.name) MUSIC_NAMES[it.u] = it.name; if (!MUSIC_URLS.includes(it.u)) MUSIC_URLS.push(it.u); }
+    for (const [key, it] of Object.entries(snap.val())) {
+      if (!it || !it.u || HIDE.has(it.u)) continue;
+      MKEY[it.u] = key;
+      if (it.name) MUSIC_NAMES[it.u] = it.name;
+      if (!MUSIC_URLS.includes(it.u)) MUSIC_URLS.push(it.u);
     }
   } catch (e) { console.warn("Firebase: không đọc được nhạc nền.", e); }
 })();
 
 const $ = id => document.getElementById(id), say = window.admSay;
-$("admTy").onchange = () => { const m = $("admTy").value === "m"; $("admQF").hidden = m; $("admMF").hidden = !m; say(""); };
+function drawDel() {
+  let h = `<div class="dh">Nhạc nền (${MUSIC_URLS.length})</div>` + MUSIC_URLS.map((u, i) =>
+    `<div class="di"><span>${esc(MUSIC_NAMES[u] || "Bài nhạc " + (i + 1))}</span><button data-t="m" data-u="${esc(u)}">Xóa</button></div>`).join("");
+  for (const k of Object.keys(Q)) if (Q[k].length)
+    h += `<div class="dh">${esc(S[k][0])} (${Q[k].length})</div>` + Q[k].map(q =>
+      `<div class="di"><span>Câu ${q.n}. ${esc(q.t)}</span><button data-t="q" data-k="${k}" data-u="${esc(q.u)}">Xóa</button></div>`).join("");
+  $("admDl").innerHTML = h;
+}
+$("admTy").onchange = () => {
+  const v = $("admTy").value;
+  $("admQF").hidden = v !== "q"; $("admMF").hidden = v !== "m"; $("admDel").hidden = v !== "d"; $("admGo").hidden = v === "d";
+  if (v === "d") drawDel();
+  say("");
+};
+/* xóa: bài thêm qua web thì xóa khỏi DB; bài có sẵn trong code thì đánh dấu ẩn */
+$("admDl").onclick = async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (!confirm("Xóa bài này? Không hoàn tác được.")) return;
+  const t = b.dataset.t, u = b.dataset.u, k = b.dataset.k;
+  b.disabled = true; say("Đang xóa…");
+  try {
+    let key = null;
+    if (t === "m") key = MKEY[u]; else { const it = Q[k].find(q => q.u === u); key = it && it.key; }
+    if (key) await remove(ref(db, (t === "m" ? "music/" : "questions/" + k + "/") + key));
+    else await set(ref(db, "hidden/" + hsh(u)), { u });
+    HIDE.add(u);
+    if (t === "m") { const i = MUSIC_URLS.indexOf(u); if (i >= 0) { MUSIC_URLS.splice(i, 1); musFix(i); } }
+    else {
+      const i = Q[k].findIndex(q => q.u === u);
+      if (i >= 0) {
+        Q[k].splice(i, 1);
+        if (cur && cur.k === k) {
+          if (cur.i === i) { LEC.pause(); cur = null; pl.hidden = true; document.body.classList.remove("hasPl"); syncUI(); }
+          else if (cur.i > i) cur.i--;
+        }
+      }
+      refresh();
+    }
+    drawDel(); say("Đã xóa ✓", "ok");
+  } catch (er) { b.disabled = false; say("Không xóa được: " + (er.code || er.message) + ". Kiểm tra lại Rules.", "er"); }
+};
 const nextN = () => { const k = $("admK").value; $("admN").value = Q[k].reduce((m, q) => Math.max(m, q.n), 0) + 1; };
 $("admK").onchange = nextN;
 const view = u => { $("admLogin").hidden = !!u; $("admForm").hidden = !u; $("admT").textContent = u ? "Thêm bài nghe / nhạc" : "Đăng nhập quản trị"; if (u) nextN(); };
@@ -1112,7 +1192,8 @@ $("admGo").onclick = async () => {
     if (MUSIC_URLS.includes(u)) { say("Bài nhạc này đã có rồi.", "er"); return; }
     $("admGo").disabled = true; say("Đang đăng…");
     try {
-      await push(ref(db, "music"), { name, u });
+      if (HIDE.has(u)) { await remove(ref(db, "hidden/" + hsh(u))); HIDE.delete(u); }
+      const r = await push(ref(db, "music"), { name, u }); MKEY[u] = r.key;
       MUSIC_URLS.push(u); if (name) MUSIC_NAMES[u] = name;
       say("Đã thêm nhạc nền ✓ Bài sẽ phát khi nhạc nền chuyển bài.", "ok");
       $("admMN").value = ""; $("admMU").value = "";
@@ -1124,8 +1205,9 @@ $("admGo").onclick = async () => {
   if (Q[k].some(q => q.u === u)) { say("Link này đã có trong môn này rồi.", "er"); return; }
   $("admGo").disabled = true; say("Đang đăng…");
   try {
-    await push(ref(db, "questions/" + k), { n, t, u });
-    mergeIn(k, { n, t, u }); sortKeep(k); refresh();
+    if (HIDE.has(u)) { await remove(ref(db, "hidden/" + hsh(u))); HIDE.delete(u); }
+    const r = await push(ref(db, "questions/" + k), { n, t, u });
+    mergeIn(k, { n, t, u }, r.key); sortKeep(k); refresh();
     say("Đã đăng lên database ✓ Bài hiện ngay trên web.", "ok");
     $("admQ").value = ""; $("admU").value = ""; nextN();
   } catch (e) { say("Không đăng được: " + (e.code || e.message) + ". Kiểm tra lại Rules.", "er"); }
