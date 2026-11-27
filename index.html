@@ -1156,9 +1156,9 @@ const YT_KEY="AIzaSyCSb5-s-NqVyQYPbEKM2gvpcR9KPwwpjME";
 var yt=null,ytList=[],ytIdx=-1,ytTimer=0,ytMsg="",ytTaps=[];
 css.textContent+=`
 #mus .ys{display:flex;gap:6px;padding:0 6px 8px}
-#mus .ys input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:7px 10px;outline:0}
+#mus .ys input{flex:1;min-width:0;font:inherit;font-size:16px;line-height:1.2;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:5px 9px;outline:0;-webkit-appearance:none;appearance:none}
 #mus .ys input:focus{border-color:var(--g1)}
-#mus .ys button{flex:none;width:34px;height:auto;border-radius:10px;background:linear-gradient(135deg,var(--g1),var(--g2));padding:0;display:grid;place-items:center}
+#mus .ys button{flex:none;width:36px;height:auto;border-radius:10px;background:linear-gradient(135deg,var(--g1),var(--g2));padding:0;display:grid;place-items:center}
 #mus .ys svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round}
 #ytRes{display:none}
 #mus.ysr #ytRes{display:block;border-bottom:1px solid var(--bd);margin-bottom:6px;padding-bottom:6px}
@@ -1177,6 +1177,8 @@ css.textContent+=`
 #mus .ytb iframe{width:100%;height:100%;border:0;display:block}
 #mus .ytt{display:none;margin-top:8px;font-size:11.5px;padding:5px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--bd);color:var(--tx)}
 #mus.yt .ytt{display:block}
+#mus{-webkit-text-size-adjust:100%;text-size-adjust:100%;max-height:calc(100dvh - 70px)}
+@media (max-width:700px){#mus.ysr .mL{max-height:min(210px,30vh)!important}#mus .yk img{width:36px;height:36px}#mus .yk{padding:4px 6px;gap:8px}#mus .ytb{border-radius:10px}#mus.yt .mR{padding-top:10px}}
 `;
 const dec=s=>{const d=document.createElement("textarea");d.innerHTML=s;return d.value};
 function ytDraw(){const R=$("ytRes");
