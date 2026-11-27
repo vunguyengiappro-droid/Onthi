@@ -714,7 +714,7 @@ try{R=new THREE.WebGLRenderer({canvas:cv,alpha:true,antialias:false,powerPrefere
 R.setClearColor(0,0);
 const coarse=matchMedia("(pointer:coarse)").matches,NF=coarse?3200:6500,NG=coarse?1800:4200,DIST=1400,Z0=-120,V2=THREE.Vector2;
 const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(40,1,10,6000);cam.position.z=DIST;
-const U={uTime:{value:0},uNdc:{value:new V2(9,9)},uPtr:{value:0},uAsp:{value:1},uTan:{value:.3},uDist:{value:DIST},uScale:{value:400},uLight:{value:0},uScroll:{value:0},uRot:{value:0},uBH:{value:0},uAud:{value:0},uPar:{value:new V2()},uB:{value:[0,1,2].map(()=>new THREE.Vector4(0,0,-99,0))}};
+const U={uTime:{value:0},uNdc:{value:new V2(9,9)},uPtr:{value:0},uAsp:{value:1},uTan:{value:.3},uDist:{value:DIST},uScale:{value:400},uLight:{value:0},uScroll:{value:0},uRot:{value:0},uBH:{value:0},uAud:{value:0},uTw:{value:0},uPar:{value:new V2()},uB:{value:[0,1,2].map(()=>new THREE.Vector4(0,0,-99,0))}};
 const COM=`uniform float uTime,uPtr,uAsp,uTan,uDist,uScale,uLight,uScroll,uSz,uAud;uniform vec2 uNdc,uPar;uniform vec4 uB[3];varying float vA;varying vec3 vC;
 float disturb(inout vec3 p){float dp=uDist-p.z,k=dp/uDist;vec2 hf=vec2(uAsp,1.)*uTan*dp;vec2 d=p.xy-uNdc*hf;float L=length(d),Rr=200.*k;
 float f=exp(-(L*L)/(Rr*Rr))*uPtr;vec2 dir=d/max(L,1.);p.xy+=dir*f*130.*k+vec2(-dir.y,dir.x)*f*80.*k;p.z+=f*170.;
@@ -726,8 +726,8 @@ float par=.3+.7*smoothstep(-600.,500.,p.z);float cl=mod(p.y+uTime*13.*sp+uScroll
 float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=uSz*sd.w*(1.+f*1.7+uAud*.9)*(uScale/max(-mv.z,1.));
 float tw=.55+.45*sin(uTime*(.7+sp*1.6)+ph*3.1);vA=clamp(tw*(.5+f*1.5+uAud*.8)*(1.-smoothstep(.72,1.,abs(cl)/900.)),0.,1.);
 vC=mix(mix(vec3(.62,.68,1.),vec3(.86,.62,1.),fract(ph*.318)),vec3(1.,.95,.8),clamp(f*1.2+uAud*.5,0.,1.));gl_Position=projectionMatrix*mv;}`;
-const VG=COM+`attribute vec4 g;uniform vec3 uGC;uniform vec2 uTilt;uniform float uRot,uBH;void main(){float r=g.x,th=g.y+uRot*.75*(1.25-r*.7);
-vec3 q=vec3(cos(th)*r,g.z*(1.-r)*.10+sin(th*3.+uTime*.7)*.01,sin(th)*r)*uGC.z*(1.+uAud*.07);
+const VG=COM+`attribute vec4 g;uniform vec3 uGC;uniform vec2 uTilt;uniform float uRot,uBH,uTw;void main(){float r=g.x,th=g.y+uRot*.75*(1.25-r*.7)+uTw;
+vec3 q=vec3(cos(th)*r,g.z*(1.-r)*.10+sin(th*3.+uTime*.7)*.01,sin(th)*r)*uGC.z*(1.+uAud*.16);
 float cx=cos(uTilt.x),sx=sin(uTilt.x);q=vec3(q.x,q.y*cx-q.z*sx,q.y*sx+q.z*cx);
 float cz=cos(uTilt.y),sz=sin(uTilt.y);q=vec3(q.x*cz-q.y*sz,q.x*sz+q.y*cz,q.z);
 vec3 p=vec3(uGC.xy,-120.)+q;p.xy-=uPar*(p.z+500.)*.03;float f=disturb(p);vec4 mv=modelViewMatrix*vec4(p,1.);
@@ -771,18 +771,49 @@ function place(dt){const W=innerWidth,H=innerHeight,it=document.getElementById("
 let tb0=1,spin=1,rot=0,szv=6.6,bhv=0;
 function spinUp(dt){const it=document.getElementById("intro"),I=it&&!it.classList.contains("go"),kk=1-Math.pow(.02,dt);
  tb0+=((I?1.42:1)-tb0)*kk;mf2.uniforms.uOp.value=.12+.2*bhv;spin+=((I?2.4:1)-spin)*kk;szv+=((I?6:6.6)-szv)*kk;bhv+=((I?1:0)-bhv)*kk;U.uBH.value=bhv;rot+=dt*spin;mg.uniforms.uSz.value=szv;U.uRot.value=rot}
-let aE=0,an=null,ad=null;
+let aE=0,an=null,ad=null,an2=null,ad2=null,avg=0,lastB=-9,kick=0,twS=0,twV=0,wasPh=0;
+const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+window.__corsOn=false;
+bgm.addEventListener("loadstart",()=>{bgm.__corsLoaded=bgm.crossOrigin==="anonymous"});
+/* Phân tích nhạc thật chỉ khi MỌI link nhạc cho phép CORS (không thì nhạc im lặng). Không đủ điều kiện thì dùng nhịp giả như cũ. */
+window.__corsN=-1;
+window.corsCheck=function(){
+  if(IOS||window.__corsOn||window.__corsN===MUSIC_URLS.length)return;
+  window.__corsN=MUSIC_URLS.length;const list=MUSIC_URLS.slice();
+  Promise.all(list.map(u=>fetch(u,{method:"HEAD",mode:"cors"}).then(()=>1,()=>0))).then(r=>{
+    if(r.length&&r.every(Boolean)&&!window.__corsOn){window.__corsOn=true;bgm.crossOrigin="anonymous";
+      if(!started){const s0=bgm.getAttribute("src");if(s0)bgm.src=s0}}})};
+window.corsCheck();
+function bgAn(){
+  if(an2)return an2;
+  if(IOS||!window.__corsOn||!AC||AC.state!=="running")return null;
+  try{const sr=AC.createMediaElementSource(bgm);an2=AC.createAnalyser();an2.fftSize=1024;an2.smoothingTimeConstant=.35;an2.minDecibels=-90;an2.maxDecibels=-10;
+   sr.connect(an2);an2.connect(AC.destination);ad2=new Uint8Array(an2.frequencyBinCount)}catch(e){an2=null;window.__corsOn=false}
+  return an2}
+/* b = năng lượng bass, m = năng lượng giữa (0..1). Bass vọt lên so với trung bình gần đây = một nhịp. */
+function feat(b,m,T,dt){
+  avg+=(b-avg)*(1-Math.pow(.05,dt));
+  if(b-avg>.045&&b>.3&&T-lastB>.22){lastB=T;kick=1;twS+=.4}
+  kick=Math.max(0,kick-dt*3.6);
+  const lvl=Math.min(1,Math.max(0,(b-.45)*1.8));
+  return Math.min(1,Math.max(kick*.95,lvl*.75+Math.max(0,m-.35)*.6))}
 function aud(T,dt){let a=0;
  try{
   const lec=typeof LEC!=="undefined"&&LEC&&!LEC.paused&&LEC.currentTime>0;
   const syn=typeof timer!=="undefined"&&timer&&AC&&mG&&soundOn;
   const mp3=typeof bgm!=="undefined"&&bgm&&!bgm.paused&&bgm.currentTime>0&&!bgmFail&&soundOn;
-  if(lec){a=Math.min(1,Math.max(0,.5*Math.abs(Math.sin(T*6.1+Math.sin(T*1.7)*2))+.2*Math.sin(T*2.3)+.12))}
+  if(lec){kick=Math.max(0,kick-dt*3.6);a=Math.min(1,Math.max(0,.5*Math.abs(Math.sin(T*6.1+Math.sin(T*1.7)*2))+.2*Math.sin(T*2.3)+.12))}
   else if(syn){if(!an){an=AC.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.6;mG.connect(an);ad=new Uint8Array(an.frequencyBinCount)}
-   an.getByteFrequencyData(ad);let q=0;for(let i=1;i<7;i++)q+=ad[i];a=Math.min(1,q/6/255*1.6)}
-  else if(mp3){const ph=(bgm.currentTime*104/60)%1,k=Math.exp(-ph*5.5),o=Math.exp(-((ph+.5)%1)*9)*.35,w=.75+.25*Math.sin(T*.9)+.1*Math.sin(T*3.1);a=Math.min(1,(k+o)*w)}
+   an.getByteFrequencyData(ad);let q=0;for(let i=1;i<7;i++)q+=ad[i];a=feat(Math.min(1,q/6/255*1.6),0,T,dt)}
+  else if(mp3){
+   const A=bgm.__corsLoaded?bgAn():null;
+   if(A){A.getByteFrequencyData(ad2);let b=0,m=0;for(let i=1;i<=5;i++)b+=ad2[i];for(let i=6;i<=40;i++)m+=ad2[i];a=feat(b/5/255,m/35/255,T,dt)}
+   else{const ph=(bgm.currentTime*104/60)%1;if(ph<wasPh){kick=1;twS+=.4}wasPh=ph;kick=Math.max(0,kick-dt*3.6);
+    const k=Math.exp(-ph*5.5),o=Math.exp(-((ph+.5)%1)*9)*.35,w=.75+.25*Math.sin(T*.9)+.1*Math.sin(T*3.1);a=Math.min(1,(k+o)*w)}}
+  else kick=Math.max(0,kick-dt*3.6);
  }catch(e){}
- aE+=(a-aE)*(a>aE?1-Math.pow(.0005,dt):1-Math.pow(.15,dt));U.uAud.value=aE}
+ aE+=(a-aE)*(a>aE?1-Math.pow(.0005,dt):1-Math.pow(.03,dt));U.uAud.value=aE;
+ twV+=(twS-twV)*(1-Math.pow(.0006,dt));U.uTw.value=twV}
 let T=0,last=performance.now(),wasL=null,lowed=false;
 function frame(now){requestAnimationFrame(frame);if(document.hidden){last=now;return}
  const dt=Math.min((now-last)/1000,.05);last=now;T+=dt;U.uTime.value=T;
@@ -1021,7 +1052,7 @@ window.musReseed=function(){
   if(started||!MUSIC_URLS.length)return;const L=MUSIC_URLS.length;
   bi=(musShuffle&&L>1)?Math.floor(Math.random()*L):0;bgm.src=MUSIC_URLS[bi]};
 window.musReady=function(){
-  window.__musReady=true;musReseed();
+  window.__musReady=true;musReseed();try{window.corsCheck&&window.corsCheck()}catch(e){}
   if(window.__musPending){window.__musPending=false;_startMusic()}};
 window.musDrawPub=()=>{if(isOpen())musDraw()};
 window.musPlayPub=n=>musPlay(n);
